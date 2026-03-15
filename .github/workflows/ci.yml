@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install deps
+        run: uv sync --all-groups
+      - name: Ruff
+        run: uv run ruff check .
+      - name: Black
+        run: uv run black --check .
+      - name: Pytest
+        run: uv run pytest -q

@@ -1,0 +1,16 @@
+task: clustering
+artifact_root: artifacts
+source:
+  type: csv
+  path: dataset/clustering/train.csv
+  target: label
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+model:
+  name: kmeans
+  params:
+    n_clusters: 4
+tune:
+  enabled: false

@@ -1,0 +1,4 @@
+{
+  "rows": 120,
+  "output": "outputs\\clustering_predictions.csv"
+}

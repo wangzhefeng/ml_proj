@@ -1,0 +1,16 @@
+task: classification
+artifact_root: artifacts
+source:
+  type: csv
+  path: dataset/classification/train.csv
+  target: target
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+model:
+  name: logistic_regression
+  params:
+    C: 1.0
+tune:
+  enabled: false

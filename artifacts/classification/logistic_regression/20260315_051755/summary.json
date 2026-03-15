@@ -1,0 +1,10 @@
+{
+  "task": "classification",
+  "model": "logistic_regression",
+  "run_id": "20260315_051755",
+  "metrics": {
+    "accuracy": 1.0,
+    "f1": 1.0,
+    "auc": 1.0
+  }
+}

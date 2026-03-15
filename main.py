@@ -1,6 +1,19 @@
-def main():
-    print("Hello from ml-proj!")
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+
+def _main() -> int:
+    from mlproj.cli import main
+
+    return main()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(_main())

@@ -1,0 +1,2 @@
+input: dataset/regression/test.csv
+output: outputs/regression_predictions.csv

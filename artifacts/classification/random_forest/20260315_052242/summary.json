@@ -1,0 +1,10 @@
+{
+  "task": "classification",
+  "model": "random_forest",
+  "run_id": "20260315_052242",
+  "metrics": {
+    "accuracy": 0.9523809523809523,
+    "f1": 0.9518025833815307,
+    "auc": 1.0
+  }
+}

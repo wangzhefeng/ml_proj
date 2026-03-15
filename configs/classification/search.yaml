@@ -1,0 +1,21 @@
+task: classification
+artifact_root: artifacts
+source:
+  type: csv
+  path: dataset/classification/train.csv
+  target: target
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+model:
+  name: random_forest
+  params: {}
+tune:
+  enabled: true
+  method: grid
+  cv_folds: 5
+  scoring: f1_weighted
+  param_grid:
+    n_estimators: [100, 200]
+    max_depth: [null, 5, 10]

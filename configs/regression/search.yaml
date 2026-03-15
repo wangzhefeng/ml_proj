@@ -1,0 +1,22 @@
+task: regression
+artifact_root: artifacts
+source:
+  type: csv
+  path: dataset/regression/train.csv
+  target: target
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+model:
+  name: random_forest
+  params: {}
+tune:
+  enabled: true
+  method: random
+  n_iter: 8
+  cv_folds: 5
+  scoring: neg_root_mean_squared_error
+  param_grid:
+    n_estimators: [100, 200, 300]
+    max_depth: [5, 10, 20]
