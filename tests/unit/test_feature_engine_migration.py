@@ -1,7 +1,7 @@
-﻿import numpy as np
+import numpy as np
 import pandas as pd
 
-from mlproj.features.legacy_engine import (
+from mlproj.features import (
     MissingPreprocessing,
     NumericCategoricalSplit,
     binarization,
@@ -46,3 +46,4 @@ def test_normalizer_feature_bridge():
     out = normalizer_min_max_feature(arr)
     assert float(out.min()) >= 0.0
     assert float(out.max()) <= 1.0
+

@@ -240,3 +240,38 @@ class DatasetLoader:
             y_test=None if y_test is None else y_test.reset_index(drop=True),
             metadata={"strategy": "timeseries"},
         )
+
+def load_yaml(path: str | Path) -> dict[str, Any]:
+    with Path(path).open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
+
+
+def get_params(path: str | Path) -> dict[str, Any]:
+    return load_yaml(path)
+
+
+def load_yaml_config(path: str | Path) -> dict[str, Any]:
+    return load_yaml(path)
+
+
+def load_json_config(path: str | Path) -> dict[str, Any]:
+    with Path(path).open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_lgb_train_test_data(
+    train_path: str,
+    test_path: str,
+    weight_paths: list[str] | None = None,
+):
+    loader = DatasetLoader()
+    return loader.load_lgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
+
+
+def get_xgb_train_test_data(
+    train_path: str,
+    test_path: str,
+    weight_paths: list[str] | None = None,
+):
+    loader = DatasetLoader()
+    return loader.load_xgb_train_test_data(train_path, test_path, weight_paths=weight_paths)

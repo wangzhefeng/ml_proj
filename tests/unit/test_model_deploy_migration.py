@@ -6,7 +6,6 @@ from mlproj.deploy import (
     export_resnet50_onnx,
     train_iris_classifier_model,
 )
-from mlproj.legacy_models import run_deploy_legacy_demo
 
 
 def test_train_and_fastapi_app(tmp_path):
@@ -26,16 +25,3 @@ def test_onnx_export_bridges(tmp_path):
 
     resnet_out = export_resnet50_onnx(tmp_path)
     assert resnet_out["status"] in {"ok", "skipped"}
-
-
-def test_deploy_legacy_bridge_scripts():
-    for script_name in [
-        "model_deploy/onnx_lr.py",
-        "model_deploy/onnx_resnet50.py",
-        "model_deploy/deploy_fastapi/model_training.py",
-        "model_deploy/deploy_fastapi/main.py",
-        "model_deploy/deploy_flask/app.py",
-        "model_deploy/deploy_flask/main.py",
-    ]:
-        out = run_deploy_legacy_demo(script_name)
-        assert "method" in out

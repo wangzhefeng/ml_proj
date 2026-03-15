@@ -5,6 +5,7 @@ from .ensemble import (
     build_stacking_classifier,
     build_voting_classifier,
     rank_models_by_score,
+    run_fusion_legacy_demo,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "build_adaboost_classifier",
     "average_predictions",
     "rank_models_by_score",
+    "run_fusion_legacy_demo",
 ]

@@ -38,3 +38,56 @@ def test_timeseries_metrics_include_rolling_window():
     assert "rolling_window" in report.metrics
     assert "rolling_rmse_mean" in report.metrics
     assert "rolling_rmse_std" in report.metrics
+    assert "segment_head_rmse" in report.metrics
+    assert "segment_mid_rmse" in report.metrics
+    assert "segment_tail_rmse" in report.metrics
+    assert "segment_rmse_drift" in report.metrics
+
+
+def test_classification_multiclass_scores_are_supported():
+    evaluator = Evaluator()
+    y_true = np.array([0, 1, 2, 0, 1, 2])
+    y_pred = np.array([0, 1, 2, 0, 2, 2])
+    y_score = np.array(
+        [
+            [0.90, 0.05, 0.05],
+            [0.10, 0.80, 0.10],
+            [0.10, 0.20, 0.70],
+            [0.80, 0.10, 0.10],
+            [0.10, 0.35, 0.55],
+            [0.05, 0.10, 0.85],
+        ]
+    )
+
+    report = evaluator.evaluate(
+        y_true=y_true, y_pred=y_pred, y_score=y_score, task="classification"
+    )
+
+    assert "auc" in report.metrics
+    assert "pr_auc" in report.metrics
+
+
+def test_clustering_metrics_allow_unsupervised_mode():
+    evaluator = Evaluator()
+    X = np.array(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [10.0, 10.0],
+            [10.1, 10.0],
+        ]
+    )
+    y_pred = np.array([0, 0, 1, 1])
+
+    report = evaluator.evaluate(
+        y_true=None,
+        y_pred=y_pred,
+        task="clustering",
+        X_for_cluster=X,
+    )
+
+    assert "n_samples" in report.metrics
+    assert "n_clusters_pred" in report.metrics
+    assert "silhouette" in report.metrics
+    assert "davies_bouldin" in report.metrics
+    assert "adjusted_rand" not in report.metrics

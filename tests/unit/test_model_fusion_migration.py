@@ -1,4 +1,4 @@
-﻿import numpy as np
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -10,7 +10,7 @@ from mlproj.fusion import (
     build_voting_classifier,
     rank_models_by_score,
 )
-from mlproj.legacy_models import run_fusion_legacy_demo
+from mlproj.fusion import run_fusion_legacy_demo
 
 
 def test_fusion_builders_trainable():
@@ -59,3 +59,4 @@ def test_fusion_legacy_bridge_scripts():
     ]:
         out = run_fusion_legacy_demo(script_name)
         assert "method" in out
+
