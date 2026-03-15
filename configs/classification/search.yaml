@@ -1,4 +1,4 @@
-task: classification
+﻿task: classification
 artifact_root: artifacts
 source:
   type: csv
@@ -9,8 +9,10 @@ split:
   valid_size: 0.2
   test_size: 0.2
 model:
+  backend: sklearn
   name: random_forest
   params: {}
+feature_pipeline: []
 tune:
   enabled: true
   method: grid

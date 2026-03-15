@@ -1,0 +1,26 @@
+﻿task: topic_modeling
+artifact_root: artifacts
+source:
+  type: csv
+  path: dataset/topic_modeling/train.csv
+  text_column: text
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+model:
+  backend: sklearn
+  name: lda
+  params:
+    n_components: 4
+    random_state: 42
+feature_pipeline:
+  - name: select_columns
+    params:
+      columns: [text]
+  - name: text_column_rename
+    params:
+      source: text
+      target: text
+tune:
+  enabled: false

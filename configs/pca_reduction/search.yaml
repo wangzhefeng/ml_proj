@@ -1,22 +1,23 @@
-﻿task: clustering
+﻿task: pca_reduction
 artifact_root: artifacts
 source:
   type: csv
-  path: dataset/clustering/train.csv
-  target: label
+  path: dataset/pca_reduction/train.csv
 split:
   strategy: random
   valid_size: 0.2
   test_size: 0.2
 model:
   backend: sklearn
-  name: kmeans
+  name: pca
   params: {}
-feature_pipeline: []
+feature_pipeline:
+  - name: numeric_only
+    params: {}
 tune:
   enabled: true
   method: grid
   cv_folds: 4
-  scoring: silhouette_score
+  scoring: null
   param_grid:
-    n_clusters: [3, 4, 5]
+    n_components: [2, 3, 4, 5]

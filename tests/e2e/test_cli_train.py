@@ -15,13 +15,15 @@ split:
   valid_size: 0.2
   test_size: 0.2
 model:
+  backend: sklearn
   name: logistic_regression
   params: {{}}
 tune:
   enabled: false
+feature_pipeline: []
 """,
         encoding="utf-8",
     )
 
-    code = main(["train", "--config", str(config_path)])
+    code = main(["train", "--config-yaml", str(config_path)])
     assert code == 0

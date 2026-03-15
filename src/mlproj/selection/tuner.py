@@ -1,13 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sklearn.model_selection import (
-    GridSearchCV,
-    KFold,
-    RandomizedSearchCV,
-    StratifiedKFold,
-)
+from sklearn.model_selection import GridSearchCV, KFold, RandomizedSearchCV, StratifiedKFold
 
 
 @dataclass
@@ -18,13 +13,21 @@ class Tuner:
         method = config.get("method", "grid")
         param_grid = config.get("param_grid", {})
         n_iter = int(config.get("n_iter", 20))
-        cv = self._build_cv(config.get("task", "classification"), config.get("cv_folds", 5))
+        task = config.get("task", "classification")
+        cv = self._build_cv(task, config.get("cv_folds", 5))
         scoring = config.get("scoring")
 
+        if task in {"classification", "regression"} and y is None:
+            raise ValueError(f"task '{task}' tuning requires y labels")
+
+        if task in {"clustering", "pca_reduction", "anomaly_detection", "topic_modeling"}:
+            if scoring is None and not hasattr(estimator, "score"):
+                raise ValueError(
+                    f"task '{task}' tuning requires scoring or estimator.score support"
+                )
+
         if method == "grid":
-            search = GridSearchCV(
-                estimator, param_grid=param_grid, cv=cv, scoring=scoring, n_jobs=-1
-            )
+            search = GridSearchCV(estimator, param_grid=param_grid, cv=cv, scoring=scoring, n_jobs=-1)
         elif method == "random":
             search = RandomizedSearchCV(
                 estimator,
@@ -45,7 +48,6 @@ class Tuner:
                 cv=cv,
                 scoring=scoring,
                 n_jobs=-1,
-                random_state=self.random_state,
             )
         elif method == "halving_random":
             from sklearn.experimental import enable_halving_search_cv  # noqa: F401
@@ -62,7 +64,10 @@ class Tuner:
         else:
             raise ValueError(f"Unsupported tune method: {method}")
 
-        search.fit(X, y)
+        if y is None:
+            search.fit(X)
+        else:
+            search.fit(X, y)
         return search
 
     def _build_cv(self, task: str, folds: int):

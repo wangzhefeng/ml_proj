@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,7 +21,7 @@ class DatasetBundle:
 @dataclass(slots=True)
 class MetricReport:
     task: str
-    metrics: dict[str, float]
+    metrics: dict[str, Any]
 
 
 @dataclass(slots=True)

@@ -1,0 +1,4 @@
+﻿model_uri: artifacts/pca_reduction/sklearn_pca/<run_id>/model.joblib
+input: dataset/pca_reduction/test.csv
+task: pca_reduction
+output_metrics: outputs/pca_reduction_evaluate_metrics.json

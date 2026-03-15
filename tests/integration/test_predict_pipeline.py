@@ -10,7 +10,7 @@ def test_predict_offline_file(tmp_path):
         "artifact_root": str(tmp_path / "artifacts"),
         "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
-        "model": {"name": "logistic_regression", "params": {}},
+        "model": {"backend": "sklearn", "name": "logistic_regression", "params": {}},
         "tune": {"enabled": False},
     }
     artifact = Trainer(artifact_root=cfg["artifact_root"]).train(cfg)

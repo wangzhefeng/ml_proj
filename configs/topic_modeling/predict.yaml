@@ -1,0 +1,2 @@
+﻿input: dataset/topic_modeling/test.csv
+output: outputs/topic_modeling_predictions.csv

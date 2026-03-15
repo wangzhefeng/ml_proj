@@ -1,0 +1,2 @@
+﻿input: dataset/anomaly_detection/test.csv
+output: outputs/anomaly_detection_predictions.csv

@@ -7,6 +7,7 @@ from mlproj.data.loader import DatasetLoader
 def test_loader_csv_random_split():
     loader = DatasetLoader(random_state=7)
     cfg = {
+        "task": "classification",
         "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
     }
@@ -37,6 +38,7 @@ def test_loader_csv_explicit_splits(tmp_path):
 
     loader = DatasetLoader(random_state=7)
     cfg = {
+        "task": "classification",
         "source": {
             "type": "csv",
             "train_path": str(train_path),
@@ -94,7 +96,7 @@ def test_loader_uses_boosting_branch_for_xgb(monkeypatch):
 
     ds = loader.load(
         {
-            "model": {"name": "xgboost"},
+            "model": {"backend": "xgboost", "name": "xgb_classifier"},
             "source": {"type": "csv", "train_path": "train.tsv", "test_path": "test.tsv"},
             "split": {"valid_size": 0.34},
         }

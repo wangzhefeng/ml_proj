@@ -1,210 +1,149 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
-from typing import Any
 
-import pandas as pd
+from mlproj.config import ConfigResolver
+from mlproj.pipeline.runner import PipelineRunner
 
-from mlproj.config import load_config
-from mlproj.evaluation.evaluator import Evaluator
-from mlproj.inference.predictor import Predictor
-from mlproj.training.trainer import Trainer
+TASK_CHOICES = [
+    "classification",
+    "regression",
+    "clustering",
+    "pca_reduction",
+    "anomaly_detection",
+    "topic_modeling",
+]
+ACTION_CHOICES = ["train", "tune", "evaluate", "predict", "serve"]
+
+
+def _build_resolver(args: argparse.Namespace) -> ConfigResolver:
+    if args.config_yaml:
+        resolver = ConfigResolver.from_yaml(args.config_yaml)
+    elif args.config_module and args.config_class:
+        resolver = ConfigResolver.from_python(args.config_module, args.config_class)
+    else:
+        raise ValueError(
+            "Please provide config via --config-yaml or --config-module + --config-class"
+        )
+    return resolver
+
+
+def _resolve_spec(args: argparse.Namespace, action: str) -> dict:
+    resolver = _build_resolver(args)
+    overrides = ConfigResolver.parse_override_items(getattr(args, "override", None))
+    overrides["action"] = action
+
+    # CLI explicit args override config values.
+    for attr, key in [
+        ("task", "task"),
+        ("model_uri", "model_uri"),
+        ("input", "input"),
+        ("output", "output"),
+        ("target_col", "target_col"),
+        ("output_metrics", "output_metrics"),
+        ("host", "host"),
+        ("port", "port"),
+    ]:
+        value = getattr(args, attr, None)
+        if value is not None:
+            overrides[key] = value
+
+    resolver.apply_overrides(overrides)
+    return resolver.resolve()
+
+
+def _run_action(spec: dict) -> int:
+    runner = PipelineRunner(artifact_root=spec.get("artifact_root", "artifacts"))
+    result = runner.run(spec)
+    print(json.dumps(result.payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    spec = _resolve_spec(args, args.action)
+    return _run_action(spec)
 
 
 def cmd_train(args: argparse.Namespace) -> int:
-    cfg = load_config(args.config)
-    trainer = Trainer(artifact_root=cfg.get("artifact_root", "artifacts"))
-    artifact = trainer.train(cfg)
-    print(
-        json.dumps(
-            {
-                "run_id": artifact.run_id,
-                "model_uri": str(artifact.model_uri),
-                "metrics_uri": str(artifact.metrics_uri),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
+    spec = _resolve_spec(args, "train")
+    return _run_action(spec)
 
 
 def cmd_tune(args: argparse.Namespace) -> int:
-    cfg = load_config(args.config)
-    cfg.setdefault("tune", {})["enabled"] = True
-    trainer = Trainer(artifact_root=cfg.get("artifact_root", "artifacts"))
-    artifact = trainer.train(cfg)
-    print(
-        json.dumps(
-            {
-                "run_id": artifact.run_id,
-                "model_uri": str(artifact.model_uri),
-                "params_uri": str(artifact.params_uri),
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-    return 0
-
-
-def cmd_predict(args: argparse.Namespace) -> int:
-    predictor = Predictor(args.model_uri)
-    output = predictor.predict_file(args.input, args.output)
-    print(json.dumps({"output": str(output)}, ensure_ascii=False, indent=2))
-    return 0
-
-
-def cmd_serve(args: argparse.Namespace) -> int:
-    import uvicorn
-
-    from mlproj.inference.service import create_app
-
-    app = create_app(args.model_uri)
-    uvicorn.run(app, host=args.host, port=args.port)
-    return 0
-
-
-def _read_table(path: str | Path) -> pd.DataFrame:
-    path = Path(path)
-    if path.suffix.lower() == ".parquet":
-        return pd.read_parquet(path)
-    return pd.read_csv(path)
-
-
-def _infer_task(estimator: Any, y_true: pd.Series | None) -> str:
-    if hasattr(estimator, "cluster_centers_"):
-        return "clustering"
-    if y_true is not None and y_true.nunique(dropna=True) <= 30:
-        return "classification"
-    return "regression"
-
-
-def _evaluate_with_model(
-    model_uri: str,
-    input_path: str,
-    target_col: str | None,
-    task: str | None,
-    output_metrics: str | None,
-) -> dict[str, Any]:
-    predictor = Predictor(model_uri)
-    evaluator = Evaluator()
-
-    raw_df = _read_table(input_path)
-    y_true = None
-    X_raw = raw_df.copy()
-    if target_col:
-        if target_col not in raw_df.columns:
-            raise ValueError(f"Target column not found in input: {target_col}")
-        y_true = raw_df[target_col]
-        X_raw = raw_df.drop(columns=[target_col])
-
-    pre = predictor.bundle["preprocessor"]
-    feats = predictor.bundle["features"]
-    est = predictor.bundle["estimator"]
-
-    X_eval = feats.transform(pre.transform(X_raw))
-    y_pred = est.predict(X_eval)
-
-    eval_task = task or _infer_task(est, y_true)
-    if eval_task == "clustering":
-        report = evaluator.evaluate(
-            y_true=y_true,
-            y_pred=y_pred,
-            y_score=None,
-            task="clustering",
-            X_for_cluster=X_eval,
-        )
-    else:
-        if y_true is None:
-            raise ValueError("Supervised evaluate requires --target-col")
-        y_score = None
-        if hasattr(est, "predict_proba"):
-            try:
-                y_score = est.predict_proba(X_eval)
-            except Exception:
-                y_score = None
-        report = evaluator.evaluate(y_true=y_true, y_pred=y_pred, y_score=y_score, task=eval_task)
-
-    result = {
-        "task": eval_task,
-        "rows": int(len(X_raw)),
-        "metrics": report.metrics,
-        "model_uri": str(model_uri),
-        "input": str(input_path),
-    }
-    if output_metrics:
-        output_path = Path(output_metrics)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        result["metrics_output"] = str(output_path)
-    return result
+    spec = _resolve_spec(args, "tune")
+    return _run_action(spec)
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    if args.config:
-        cfg = load_config(args.config)
-        result = _evaluate_with_model(
-            model_uri=cfg["model_uri"],
-            input_path=cfg["input"],
-            target_col=cfg.get("target_col"),
-            task=cfg.get("task"),
-            output_metrics=cfg.get("output_metrics"),
-        )
-    else:
-        if not args.model_uri or not args.input:
-            raise ValueError(
-                "evaluate requires --model-uri and --input when --config is not provided"
-            )
-        result = _evaluate_with_model(
-            model_uri=args.model_uri,
-            input_path=args.input,
-            target_col=args.target_col,
-            task=args.task,
-            output_metrics=args.output_metrics,
-        )
+    spec = _resolve_spec(args, "evaluate")
+    return _run_action(spec)
 
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+
+def cmd_predict(args: argparse.Namespace) -> int:
+    spec = _resolve_spec(args, "predict")
+    return _run_action(spec)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    spec = _resolve_spec(args, "serve")
+    return _run_action(spec)
+
+
+def _add_config_source_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--config-yaml", required=False)
+    parser.add_argument("--config-module", required=False)
+    parser.add_argument("--config-class", required=False)
+    parser.add_argument("--override", action="append", default=[])
+
+
+def _add_common_runtime_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--task", required=False, choices=TASK_CHOICES)
+    parser.add_argument("--model-uri", required=False)
+    parser.add_argument("--input", required=False)
+    parser.add_argument("--output", required=False)
+    parser.add_argument("--target-col", required=False)
+    parser.add_argument("--output-metrics", required=False)
+    parser.add_argument("--host", required=False)
+    parser.add_argument("--port", required=False, type=int)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="mlproj")
+    parser = argparse.ArgumentParser(
+        prog="mlproj",
+        description="v2 CLI (breaking): use --config-yaml or --config-module/--config-class",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_train = sub.add_parser("train", help="Train a model and save artifacts")
-    p_train.add_argument("--config", required=True)
+    p_run = sub.add_parser("run", help="Unified pipeline entry")
+    _add_config_source_args(p_run)
+    _add_common_runtime_args(p_run)
+    p_run.add_argument("--action", required=True, choices=ACTION_CHOICES)
+    p_run.set_defaults(func=cmd_run)
+
+    p_train = sub.add_parser("train", help="Thin wrapper -> run action=train")
+    _add_config_source_args(p_train)
+    _add_common_runtime_args(p_train)
     p_train.set_defaults(func=cmd_train)
 
-    p_eval = sub.add_parser("evaluate", help="Evaluate using an existing trained model")
-    p_eval.add_argument("--config", required=False)
-    p_eval.add_argument("--model-uri", required=False)
-    p_eval.add_argument("--input", required=False)
-    p_eval.add_argument("--target-col", required=False)
-    p_eval.add_argument(
-        "--task",
-        required=False,
-        choices=["classification", "regression", "clustering"],
-    )
-    p_eval.add_argument("--output-metrics", required=False)
-    p_eval.set_defaults(func=cmd_evaluate)
-
-    p_predict = sub.add_parser("predict", help="Offline prediction for CSV/Parquet")
-    p_predict.add_argument("--model-uri", required=True)
-    p_predict.add_argument("--input", required=True)
-    p_predict.add_argument("--output", required=True)
-    p_predict.set_defaults(func=cmd_predict)
-
-    p_tune = sub.add_parser("tune", help="Hyperparameter tuning")
-    p_tune.add_argument("--config", required=True)
+    p_tune = sub.add_parser("tune", help="Thin wrapper -> run action=tune")
+    _add_config_source_args(p_tune)
+    _add_common_runtime_args(p_tune)
     p_tune.set_defaults(func=cmd_tune)
 
-    p_serve = sub.add_parser("serve", help="Serve model with FastAPI")
-    p_serve.add_argument("--model-uri", required=True)
-    p_serve.add_argument("--host", default="127.0.0.1")
-    p_serve.add_argument("--port", default=8000, type=int)
+    p_eval = sub.add_parser("evaluate", help="Thin wrapper -> run action=evaluate")
+    _add_config_source_args(p_eval)
+    _add_common_runtime_args(p_eval)
+    p_eval.set_defaults(func=cmd_evaluate)
+
+    p_predict = sub.add_parser("predict", help="Thin wrapper -> run action=predict")
+    _add_config_source_args(p_predict)
+    _add_common_runtime_args(p_predict)
+    p_predict.set_defaults(func=cmd_predict)
+
+    p_serve = sub.add_parser("serve", help="Thin wrapper -> run action=serve")
+    _add_config_source_args(p_serve)
+    _add_common_runtime_args(p_serve)
     p_serve.set_defaults(func=cmd_serve)
 
     return parser
@@ -218,5 +157,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,38 +17,45 @@ class DatasetLoader:
     def load(self, config: dict[str, Any]) -> DatasetBundle:
         source = config.get("source", {})
         source_type = source.get("type", "csv")
-        model_name = str(config.get("model", {}).get("name", "")).lower()
 
-        if source_type == "csv":
-            boosting_bundle = self._maybe_load_boosting_train_test(
-                source=source,
-                model_name=model_name,
-                config=config,
+        if source_type != "csv":
+            raise ValueError(
+                "Unsupported source.type: "
+                f"{source_type}. Only user-provided csv files are supported in this framework."
             )
-            if boosting_bundle is not None:
-                return boosting_bundle
-            return self._load_csv(config)
 
-        raise ValueError(
-            "Unsupported source.type: "
-            f"{source_type}. Only user-provided csv files are supported in this framework."
-        )
+        backend = str(config.get("model", {}).get("backend", "")).lower()
+        boosting_bundle = self._maybe_load_boosting_train_test(source, backend, config)
+        if boosting_bundle is not None:
+            return boosting_bundle
+
+        return self._load_csv(config)
 
     def _load_csv(self, config: dict[str, Any]) -> DatasetBundle:
         source = config["source"]
         target_col = source.get("target")
         sep = source.get("sep", ",")
+        task = str(config.get("task", "classification"))
 
         if source.get("train_path"):
-            return self._load_explicit_splits(source=source, target_col=target_col, sep=sep)
+            return self._load_explicit_splits(
+                source=source,
+                target_col=target_col,
+                sep=sep,
+                task=task,
+            )
 
         path = source["path"]
-        df = pd.read_csv(path, sep=sep)
+        df = self._read_csv(path, sep)
         X, y = self._split_target(df, target_col)
-        return self._split(X, y, config)
+        return self._split(X, y, config, task=task)
 
     def _load_explicit_splits(
-        self, source: dict[str, Any], target_col: str | None, sep: str
+        self,
+        source: dict[str, Any],
+        target_col: str | None,
+        sep: str,
+        task: str,
     ) -> DatasetBundle:
         train_df = self._read_csv(source["train_path"], sep)
         valid_df = self._read_csv(source["valid_path"], sep) if source.get("valid_path") else None
@@ -71,7 +78,7 @@ class DatasetLoader:
                 }
             }
             split_cfg["split"].update(source.get("split", {}))
-            split_bundle = self._split(X_train, y_train, split_cfg)
+            split_bundle = self._split(X_train, y_train, split_cfg, task=task)
             X_train = split_bundle.X_train
             y_train = split_bundle.y_train
             X_valid = split_bundle.X_valid
@@ -158,7 +165,7 @@ class DatasetLoader:
     def _maybe_load_boosting_train_test(
         self,
         source: dict[str, Any],
-        model_name: str,
+        backend: str,
         config: dict[str, Any],
     ) -> DatasetBundle | None:
         train_path = source.get("train_path")
@@ -166,27 +173,18 @@ class DatasetLoader:
         if not train_path or not test_path:
             return None
 
+        if backend not in {"lightgbm", "xgboost"}:
+            return None
+
         weight_paths = source.get("weight_paths")
         valid_size = float(config.get("split", {}).get("valid_size", 0.2))
 
-        backend_name = ""
         backend_train = None
         backend_test = None
         backend_weights: tuple[pd.Series, pd.Series] | None = None
 
-        if model_name in {"lightgbm", "lgbm", "lgbm_classifier", "lgbm_regressor"}:
+        if backend == "lightgbm":
             loaded = self.load_lgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
-            backend_name = "lightgbm"
-            if weight_paths:
-                W_train, W_test, X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = (
-                    loaded
-                )
-                backend_weights = (W_train, W_test)
-            else:
-                X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = loaded
-        elif model_name in {"xgboost", "xgb", "xgb_classifier", "xgb_regressor"}:
-            loaded = self.load_xgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
-            backend_name = "xgboost"
             if weight_paths:
                 W_train, W_test, X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = (
                     loaded
@@ -195,7 +193,14 @@ class DatasetLoader:
             else:
                 X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = loaded
         else:
-            return None
+            loaded = self.load_xgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
+            if weight_paths:
+                W_train, W_test, X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = (
+                    loaded
+                )
+                backend_weights = (W_train, W_test)
+            else:
+                X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = loaded
 
         stratify_y = y_train_raw if y_train_raw.nunique(dropna=True) <= 30 else None
         X_train, X_valid, y_train, y_valid = train_test_split(
@@ -208,7 +213,7 @@ class DatasetLoader:
 
         metadata: dict[str, Any] = {
             "strategy": "boosting_explicit_train_test",
-            "backend": backend_name,
+            "backend": backend,
             "backend_train": backend_train,
             "backend_test": backend_test,
         }
@@ -243,14 +248,20 @@ class DatasetLoader:
             raise ValueError(f"Target column not found: {target_col}")
         return df.drop(columns=[target_col]), df[target_col]
 
-    def _split(self, X: pd.DataFrame, y: pd.Series | None, config: dict[str, Any]) -> DatasetBundle:
+    def _split(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series | None,
+        config: dict[str, Any],
+        task: str,
+    ) -> DatasetBundle:
         split_cfg = config.get("split", {})
         strategy = split_cfg.get("strategy", "random")
         valid_size = float(split_cfg.get("valid_size", 0.2))
         test_size = float(split_cfg.get("test_size", 0.2))
 
         stratify_y = None
-        if y is not None and y.nunique(dropna=True) <= 30:
+        if task == "classification" and y is not None and y.nunique(dropna=True) <= 30:
             stratify_y = y
 
         X_train_full, X_test, y_train_full, y_test = train_test_split(
@@ -263,7 +274,7 @@ class DatasetLoader:
 
         rel_valid = valid_size / max(1e-8, 1.0 - test_size)
         stratify_train = None
-        if y_train_full is not None and y_train_full.nunique(dropna=True) <= 30:
+        if task == "classification" and y_train_full is not None and y_train_full.nunique(dropna=True) <= 30:
             stratify_train = y_train_full
 
         X_train, X_valid, y_train, y_valid = train_test_split(

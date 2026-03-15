@@ -1,18 +1,19 @@
-﻿task: clustering
+﻿task: pca_reduction
 artifact_root: artifacts
 source:
   type: csv
-  path: dataset/clustering/train.csv
-  target: label
+  path: dataset/pca_reduction/train.csv
 split:
   strategy: random
   valid_size: 0.2
   test_size: 0.2
 model:
   backend: sklearn
-  name: kmeans
+  name: pca
   params:
-    n_clusters: 4
-feature_pipeline: []
+    n_components: 4
+feature_pipeline:
+  - name: numeric_only
+    params: {}
 tune:
   enabled: false

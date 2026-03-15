@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol
@@ -17,6 +17,13 @@ class Preprocessor(Protocol):
     def transform(self, X: pd.DataFrame) -> pd.DataFrame: ...
 
 
+@dataclass
+class IdentityPreprocessor:
+    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "IdentityPreprocessor":
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        return X.copy()
 @dataclass
 class SklearnPreprocessor:
     transformer: ColumnTransformer | None = None
@@ -196,4 +203,6 @@ NormalityTransform = normality_transform
 normalizer_L2 = normalizer_l2
 normalizer_Ln = normalizer_ln
 robust_tansform = robust_transform
+
+
 

@@ -1,4 +1,4 @@
-task: regression
+﻿task: regression
 artifact_root: artifacts
 source:
   type: csv
@@ -9,8 +9,10 @@ split:
   valid_size: 0.2
   test_size: 0.2
 model:
+  backend: sklearn
   name: random_forest
   params: {}
+feature_pipeline: []
 tune:
   enabled: true
   method: random
@@ -18,5 +20,5 @@ tune:
   cv_folds: 5
   scoring: neg_root_mean_squared_error
   param_grid:
-    n_estimators: [100, 200, 300]
-    max_depth: [5, 10, 20]
+    n_estimators: [100, 200]
+    max_depth: [5, 10, null]

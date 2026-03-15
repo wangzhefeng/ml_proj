@@ -1,8 +1,8 @@
-﻿task: classification
+﻿task: anomaly_detection
 artifact_root: artifacts
 source:
   type: csv
-  path: dataset/classification/train.csv
+  path: dataset/anomaly_detection/train.csv
   target: target
 split:
   strategy: random
@@ -10,9 +10,11 @@ split:
   test_size: 0.2
 model:
   backend: sklearn
-  name: logistic_regression
+  name: isolation_forest
   params:
-    C: 1.0
-feature_pipeline: []
+    contamination: 0.1
+feature_pipeline:
+  - name: numeric_only
+    params: {}
 tune:
   enabled: false

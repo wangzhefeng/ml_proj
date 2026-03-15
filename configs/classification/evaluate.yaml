@@ -1,4 +1,4 @@
-model_uri: artifacts/classification/logistic_regression/<run_id>/model.joblib
+﻿model_uri: artifacts/classification/sklearn_logistic_regression/<run_id>/model.joblib
 input: dataset/classification/test.csv
 target_col: target
 task: classification

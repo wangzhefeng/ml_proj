@@ -1,4 +1,4 @@
-task: regression
+﻿task: regression
 artifact_root: artifacts
 source:
   type: csv
@@ -9,7 +9,9 @@ split:
   valid_size: 0.2
   test_size: 0.2
 model:
+  backend: sklearn
   name: linear_regression
   params: {}
+feature_pipeline: []
 tune:
   enabled: false

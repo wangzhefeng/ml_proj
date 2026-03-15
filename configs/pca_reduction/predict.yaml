@@ -1,0 +1,2 @@
+﻿input: dataset/pca_reduction/test.csv
+output: outputs/pca_reduction_predictions.csv

@@ -1,4 +1,4 @@
-model_uri: artifacts/regression/linear_regression/<run_id>/model.joblib
+﻿model_uri: artifacts/regression/sklearn_linear_regression/<run_id>/model.joblib
 input: dataset/regression/test.csv
 target_col: target
 task: regression

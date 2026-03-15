@@ -19,6 +19,7 @@ split:
   valid_size: 0.2
   test_size: 0.2
 model:
+  backend: sklearn
   name: logistic_regression
   params: {{}}
 tune:
@@ -47,6 +48,7 @@ split:
   valid_size: 0.7
   test_size: 0.4
 model:
+  backend: sklearn
   name: linear_regression
   params: {{}}
 """,
@@ -64,6 +66,7 @@ def test_load_config_source_invalid(tmp_path):
 source:
   type: csv
 model:
+  backend: sklearn
   name: logistic_regression
   params: {}
 """,

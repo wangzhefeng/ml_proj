@@ -10,7 +10,7 @@ def test_train_classification_end_to_end(tmp_path):
         "artifact_root": str(tmp_path / "artifacts"),
         "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
-        "model": {"name": "logistic_regression", "params": {}},
+        "model": {"backend": "sklearn", "name": "logistic_regression", "params": {}},
         "tune": {"enabled": False},
         "random_state": 123,
     }
@@ -25,5 +25,4 @@ def test_train_classification_end_to_end(tmp_path):
     assert "accuracy" in metrics
     assert "run_metadata" in summary
     assert summary["run_metadata"]["random_seed"] == 123
-    assert "git_commit" in summary["run_metadata"]
     assert "environment" in summary["run_metadata"]

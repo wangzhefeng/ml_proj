@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+﻿from fastapi.testclient import TestClient
 
 from mlproj.inference.service import create_app
 from mlproj.training.trainer import Trainer
@@ -10,7 +10,7 @@ def test_service_health_and_predict_contract(tmp_path):
         "artifact_root": str(tmp_path / "artifacts"),
         "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
-        "model": {"name": "logistic_regression", "params": {}},
+        "model": {"backend": "sklearn", "name": "logistic_regression", "params": {}},
         "tune": {"enabled": False},
     }
     artifact = Trainer(artifact_root=cfg["artifact_root"]).train(cfg)
@@ -30,11 +30,14 @@ def test_service_health_and_predict_contract(tmp_path):
         json={
             "rows": [
                 {
-                    "feature_0": 14.23,
-                    "feature_1": 1.71,
-                    "feature_2": 2.43,
-                    "feature_3": 15.6,
-                    "feature_4": 127,
+                    "feat_0": 0.3,
+                    "feat_1": -0.4,
+                    "feat_2": 1.2,
+                    "feat_3": 0.8,
+                    "feat_4": -0.2,
+                    "feat_5": 0.1,
+                    "feat_6": 0.05,
+                    "feat_7": -0.6,
                 }
             ]
         },

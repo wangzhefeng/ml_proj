@@ -1,75 +1,93 @@
 ﻿# ml-proj
 
-`ml-proj` 是一个面向工程落地的机器学习建模框架，覆盖：数据读取、预处理、特征工程、模型训练、调参、评估、融合与推理。
+`ml-proj` 是一个面向工程落地的机器学习建模框架，采用“配置驱动 + 分层解耦”设计。
 
-## 当前架构
+当前任务范围：
+- `classification`
+- `regression`
+- `clustering`
+- `pca_reduction`
+- `anomaly_detection`
+- `topic_modeling`
+
+## 架构分层
 
 ```text
 src/mlproj/
   data/          数据读取与切分
   preprocess/    预处理模块
   features/      特征工程模块
-  models/        模型工厂与适配器
+  models/        模型工厂、后端注册中心、后端适配
   selection/     搜索与调参
   fusion/        模型融合
-  training/      训练编排
-  evaluation/    模型评估
+  training/      训练模块（薄包装）
+  evaluation/    评估模块
   inference/     离线预测与在线服务
+  pipeline/      统一 PipelineRunner 编排内核
   registry/      产物管理
   utils/         通用工具
 ```
+
+## 断裂升级说明（V2）
+
+- 旧 CLI 参数路径不再兼容（如 `--config`）。
+- 新入口统一为 `run`，`train/tune/evaluate/predict/serve` 为薄包装。
+- 配置支持双轨：
+  - YAML：`--config-yaml`
+  - Python Config Class：`--config-module + --config-class`
+
+## 后端机制（可插拔）
+
+内置后端：`sklearn`、`lightgbm`、`xgboost`、`catboost`。
+
+创建模型由 `model.backend + model.name` 决定；支持 `backend_provider` 动态加载外部后端。
 
 ## 快速开始
 
 ```bash
 uv sync --all-groups
-uv run mlproj train --config configs/classification/train.yaml
-uv run mlproj tune --config configs/classification/search.yaml
+uv run mlproj run --action train --config-yaml configs/classification/train.yaml
+uv run mlproj run --action tune --config-yaml configs/regression/search.yaml
+uv run mlproj run --action evaluate --config-yaml configs/classification/evaluate.yaml
+uv run mlproj run --action predict --config-yaml configs/classification/predict.yaml --override model_uri=artifacts/classification/sklearn_logistic_regression/<run_id>/model.joblib
 ```
 
 ## 核心命令
 
-- 训练：`uv run mlproj train --config <train.yaml>`
-- 调参：`uv run mlproj tune --config <search.yaml>`
-- 评估：`uv run mlproj evaluate --config <evaluate.yaml>`
-- 预测：`uv run mlproj predict --model-uri <model.joblib> --input <input.csv> --output <pred.csv>`
-- 服务：`uv run mlproj serve --model-uri <model.joblib> --host 127.0.0.1 --port 8000`
+- 统一入口：
+  - `uv run mlproj run --action <train|tune|evaluate|predict|serve> --config-yaml <file.yaml>`
+  - `uv run mlproj run --action train --config-module mypkg.my_cfg --config-class TrainConfig`
+- 薄包装子命令：
+  - `uv run mlproj train --config-yaml <train.yaml>`
+  - `uv run mlproj tune --config-yaml <search.yaml>`
+  - `uv run mlproj evaluate --config-yaml <evaluate.yaml>`
+  - `uv run mlproj predict --config-yaml <predict.yaml>`
+  - `uv run mlproj serve --config-yaml <serve.yaml>`
+- 覆盖参数：
+  - `--override key=value`
+  - 示例：`--override model.params.n_estimators=300 --override random_state=7`
 
-## 数据配置（CSV）
+## 配置规范
 
-1. 单文件 + 自动切分
+训练/调参配置必填：
+- `task`
+- `source`
+- `model.backend`
+- `model.name`
 
-```yaml
-source:
-  type: csv
-  path: dataset/classification/train.csv
-  target: target
-split:
-  strategy: random
-  valid_size: 0.2
-  test_size: 0.2
-```
-
-2. 显式 train/valid/test
-
-```yaml
-source:
-  type: csv
-  train_path: dataset/classification/train.csv
-  valid_path: dataset/classification/valid.csv
-  test_path: dataset/classification/test.csv
-  target: target
-```
+不保留旧字段自动映射。
 
 ## 训练产物
 
 ```text
-artifacts/{task}/{model}/{run_id}/
+artifacts/{task}/{backend_model}/{run_id}/
   model.joblib
   metrics.json
   feature_schema.json
   params.json
   summary.json
+  run_spec.json
+  stage_trace.json
 ```
 
 ## 质量检查
@@ -78,8 +96,3 @@ artifacts/{task}/{model}/{run_id}/
 uv run ruff check src tests
 uv run pytest -q
 ```
-
-## 说明
-
-- 项目仅支持用户自定义数据文件加载（不再使用 sklearn 内置数据源）。
-- 当 `model.name` 为 `lightgbm/lgbm` 或 `xgboost/xgb` 且 `source` 提供 `train_path + test_path`（TSV）时，`DatasetLoader` 会自动走对应后端加载分支。

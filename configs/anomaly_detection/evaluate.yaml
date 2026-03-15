@@ -1,0 +1,5 @@
+﻿model_uri: artifacts/anomaly_detection/sklearn_isolation_forest/<run_id>/model.joblib
+input: dataset/anomaly_detection/test.csv
+target_col: target
+task: anomaly_detection
+output_metrics: outputs/anomaly_detection_evaluate_metrics.json

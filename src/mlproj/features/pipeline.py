@@ -1,6 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -21,19 +22,79 @@ from sklearn.svm import LinearSVC
 
 @dataclass
 class FeaturePipeline:
+    steps: list[dict[str, Any]] = field(default_factory=list)
     selected_columns: list[str] | None = None
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "FeaturePipeline":
-        self.selected_columns = list(X.columns)
+    def fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series | None = None,
+        steps: list[dict[str, Any]] | None = None,
+    ) -> "FeaturePipeline":
+        if steps is not None:
+            self.steps = list(steps)
+
+        transformed = self._run_steps(X.copy(), stage="fit")
+        self.selected_columns = list(transformed.columns)
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         if self.selected_columns is None:
             raise RuntimeError("FeaturePipeline must be fitted before transform")
-        missing = [c for c in self.selected_columns if c not in X.columns]
+
+        transformed = self._run_steps(X.copy(), stage="transform")
+        missing = [c for c in self.selected_columns if c not in transformed.columns]
         if missing:
             raise ValueError(f"Missing columns for inference: {missing}")
-        return X[self.selected_columns].copy()
+        return transformed[self.selected_columns].copy()
+
+    def _run_steps(self, X: pd.DataFrame, stage: str) -> pd.DataFrame:
+        out = X
+        for step in self.steps:
+            if not isinstance(step, dict):
+                raise ValueError("feature_pipeline steps must be mappings")
+            name = str(step.get("name", "")).strip()
+            params = dict(step.get("params", {}))
+
+            if not name:
+                raise ValueError("feature_pipeline step requires non-empty name")
+
+            if name == "select_columns":
+                cols = params.get("columns") or []
+                out = out[cols]
+            elif name == "drop_columns":
+                cols = params.get("columns") or []
+                out = out.drop(columns=cols, errors="ignore")
+            elif name == "fillna":
+                value = params.get("value", 0)
+                out = out.fillna(value)
+            elif name == "numeric_only":
+                out = out.select_dtypes(include=["number"])
+            elif name == "text_column_rename":
+                src = str(params.get("source", ""))
+                dst = str(params.get("target", "text"))
+                if src not in out.columns:
+                    raise ValueError(f"text_column_rename source not found: {src}")
+                out = out.rename(columns={src: dst})
+            elif name == "concat_text_columns":
+                columns = list(params.get("columns") or [])
+                target = str(params.get("target", "text"))
+                if not columns:
+                    raise ValueError("concat_text_columns requires params.columns")
+                missing_cols = [c for c in columns if c not in out.columns]
+                if missing_cols:
+                    raise ValueError(f"concat_text_columns missing columns: {missing_cols}")
+                out[target] = out[columns].astype(str).agg(" ".join, axis=1)
+                if params.get("drop_source", False):
+                    out = out.drop(columns=columns, errors="ignore")
+            else:
+                raise ValueError(f"Unsupported feature_pipeline step: {name}")
+
+        if stage == "transform" and self.selected_columns is not None:
+            for col in self.selected_columns:
+                if col not in out.columns:
+                    out[col] = np.nan
+        return out
 
 
 @dataclass

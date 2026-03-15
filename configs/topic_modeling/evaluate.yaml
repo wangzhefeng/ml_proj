@@ -1,0 +1,4 @@
+﻿model_uri: artifacts/topic_modeling/sklearn_lda/<run_id>/model.joblib
+input: dataset/topic_modeling/test.csv
+task: topic_modeling
+output_metrics: outputs/topic_modeling_evaluate_metrics.json

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
@@ -182,6 +182,79 @@ def clustering_metrics(X, labels_pred, labels_true=None) -> dict[str, float]:
     return metrics
 
 
+def pca_metrics(estimator, transformed: Any) -> dict[str, Any]:
+    transformed_arr = np.asarray(transformed)
+    metrics: dict[str, Any] = {
+        "n_samples": int(transformed_arr.shape[0]) if transformed_arr.ndim >= 1 else 0,
+        "n_components_output": int(transformed_arr.shape[1]) if transformed_arr.ndim == 2 else 1,
+    }
+
+    if hasattr(estimator, "explained_variance_ratio_"):
+        ratio = np.asarray(estimator.explained_variance_ratio_)
+        metrics["explained_variance_sum"] = float(np.sum(ratio))
+        metrics["explained_variance_ratio"] = [float(v) for v in ratio.tolist()]
+
+    return metrics
+
+
+def anomaly_metrics(y_true, y_pred, y_score=None) -> dict[str, Any]:
+    pred_arr = _normalize_anomaly_labels(y_pred)
+    metrics: dict[str, Any] = {
+        "anomaly_rate": float(np.mean(pred_arr)),
+        "n_samples": int(len(pred_arr)),
+    }
+
+    if y_score is not None:
+        score_arr = np.asarray(y_score, dtype=float)
+        metrics["score_mean"] = float(np.mean(score_arr))
+        metrics["score_std"] = float(np.std(score_arr))
+
+    if y_true is not None:
+        true_arr = _normalize_anomaly_labels(y_true)
+        metrics["precision"] = float(precision_score(true_arr, pred_arr, zero_division=0))
+        metrics["recall"] = float(recall_score(true_arr, pred_arr, zero_division=0))
+        metrics["f1"] = float(f1_score(true_arr, pred_arr, zero_division=0))
+    return metrics
+
+
+def topic_metrics(estimator, topic_distribution: Any) -> dict[str, Any]:
+    dist = np.asarray(topic_distribution, dtype=float)
+    if dist.ndim != 2:
+        raise ValueError("topic_modeling evaluation requires 2D topic distribution")
+
+    entropy = -np.sum(dist * np.log(np.clip(dist, 1e-12, None)), axis=1)
+    metrics: dict[str, Any] = {
+        "n_samples": int(dist.shape[0]),
+        "n_topics": int(dist.shape[1]),
+        "avg_topic_entropy": float(np.mean(entropy)),
+    }
+
+    topic_terms: dict[str, list[str]] = {}
+    if hasattr(estimator, "model") and hasattr(estimator.model, "components_"):
+        components = estimator.model.components_
+        if hasattr(estimator, "vectorizer") and hasattr(estimator.vectorizer, "get_feature_names_out"):
+            terms = estimator.vectorizer.get_feature_names_out()
+            top_k = min(10, len(terms))
+            for idx, comp in enumerate(components):
+                top_idx = np.argsort(comp)[::-1][:top_k]
+                topic_terms[f"topic_{idx}"] = [str(terms[i]) for i in top_idx]
+    if topic_terms:
+        metrics["top_terms"] = topic_terms
+
+    return metrics
+
+
+def _normalize_anomaly_labels(values) -> np.ndarray:
+    arr = np.asarray(values)
+    if arr.ndim != 1:
+        arr = arr.reshape(-1)
+
+    unique = set(np.unique(arr).tolist())
+    if unique.issubset({-1, 1}):
+        return (arr == -1).astype(int)
+    return (arr.astype(float) > 0).astype(int)
+
+
 def _score_based_classification_metrics(y_true: np.ndarray, y_score: Any) -> dict[str, float]:
     score_arr = np.asarray(y_score)
     out: dict[str, float] = {}
@@ -242,6 +315,7 @@ class Evaluator:
         y_score=None,
         task: str = "classification",
         X_for_cluster=None,
+        estimator=None,
     ) -> MetricReport:
         if task == "classification":
             return MetricReport(task=task, metrics=classification_metrics(y_true, y_pred, y_score))
@@ -257,5 +331,20 @@ class Evaluator:
                 task=task,
                 metrics=clustering_metrics(X_for_cluster, y_pred, labels_true=y_true),
             )
+
+        if task == "pca_reduction":
+            if estimator is None:
+                raise ValueError("estimator is required for pca_reduction metrics")
+            return MetricReport(task=task, metrics=pca_metrics(estimator, y_pred))
+
+        if task == "anomaly_detection":
+            return MetricReport(task=task, metrics=anomaly_metrics(y_true, y_pred, y_score=y_score))
+
+        if task == "topic_modeling":
+            if estimator is None:
+                raise ValueError("estimator is required for topic_modeling metrics")
+            if y_score is None:
+                raise ValueError("y_score (topic distribution) is required for topic_modeling")
+            return MetricReport(task=task, metrics=topic_metrics(estimator, y_score))
 
         raise ValueError(f"Unsupported task: {task}")
