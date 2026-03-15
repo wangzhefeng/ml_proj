@@ -1,2 +1,0 @@
-input: dataset/timeseries/test.csv
-output: outputs/timeseries_predictions.csv

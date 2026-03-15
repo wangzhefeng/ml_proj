@@ -1,0 +1,5 @@
+model_uri: artifacts/regression/linear_regression/<run_id>/model.joblib
+input: dataset/regression/test.csv
+target_col: target
+task: regression
+output_metrics: outputs/regression_evaluate_metrics.json

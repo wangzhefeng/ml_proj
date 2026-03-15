@@ -1,0 +1,5 @@
+model_uri: artifacts/clustering/kmeans/<run_id>/model.joblib
+input: dataset/clustering/test.csv
+target_col: label
+task: clustering
+output_metrics: outputs/clustering_evaluate_metrics.json

@@ -28,22 +28,6 @@ def test_regression_metrics_include_mape_smape():
     assert "smape" in report.metrics
 
 
-def test_timeseries_metrics_include_rolling_window():
-    evaluator = Evaluator()
-    y_true = np.array([float(i) for i in range(1, 41)])
-    y_pred = y_true + 0.5
-
-    report = evaluator.evaluate(y_true=y_true, y_pred=y_pred, task="timeseries")
-
-    assert "rolling_window" in report.metrics
-    assert "rolling_rmse_mean" in report.metrics
-    assert "rolling_rmse_std" in report.metrics
-    assert "segment_head_rmse" in report.metrics
-    assert "segment_mid_rmse" in report.metrics
-    assert "segment_tail_rmse" in report.metrics
-    assert "segment_rmse_drift" in report.metrics
-
-
 def test_classification_multiclass_scores_are_supported():
     evaluator = Evaluator()
     y_true = np.array([0, 1, 2, 0, 1, 2])

@@ -1,38 +1,53 @@
+from pathlib import Path
+
 import pandas as pd
 
-from mlproj.analysis.causal import estimate_ate_linear
-from mlproj.analysis.factor_analysis import run_factor_analysis
-from mlproj.analysis.hypothesis import corr_test
-from mlproj.analysis.multiple_regression import run_multiple_regression
+from mlproj.config import load_config
+from mlproj.data.loader import DatasetLoader
 
 
-def test_multiple_regression_new_interface():
-    df = pd.DataFrame({"x1": [1, 2, 3, 4], "x2": [2, 3, 4, 5], "y": [2, 4, 6, 8]})
-    res = run_multiple_regression(df, ["x1", "x2"], "y", regul="linear")
-    assert set(res.columns) == {"x1", "x2"}
+def test_train_config_loads_for_current_architecture():
+    cfg = load_config("configs/classification/train.yaml")
+    assert cfg["task"] == "classification"
+    assert cfg["model"]["name"] in {"logistic_regression", "random_forest"}
 
 
-def test_corr_test_new_interface():
-    df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [1, 2, 3, 4]})
-    res = corr_test(df, ["a"], ["b"], methods=("pearson",))
-    assert len(res) == 1
-    assert "corr_coef" in res.columns
+def test_evaluate_config_loads_for_current_architecture(tmp_path: Path):
+    model_uri = tmp_path / "dummy.joblib"
+    model_uri.write_bytes(b"x")
+    input_csv = tmp_path / "sample.csv"
+    pd.DataFrame({"a": [1], "b": [2]}).to_csv(input_csv, index=False)
 
-
-def test_factor_analysis_new_interface():
-    df = pd.DataFrame({"f1": [1, 2, 3, 4], "f2": [2, 3, 4, 5], "f3": [3, 4, 5, 6]})
-    out = run_factor_analysis(df, n_factors=2)
-    assert "loadings" in out
-    assert out["loadings"].shape[1] == 2
-
-
-def test_causal_new_interface():
-    df = pd.DataFrame(
-        {
-            "treatment": [0, 1, 0, 1, 0, 1],
-            "w1": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
-            "outcome": [1.0, 3.1, 1.5, 3.8, 1.9, 4.2],
-        }
+    eval_cfg = tmp_path / "eval.yaml"
+    eval_cfg.write_text(
+        "\n".join(
+            [
+                f"model_uri: {model_uri.as_posix()}",
+                f"input: {input_csv.as_posix()}",
+                "task: classification",
+            ]
+        ),
+        encoding="utf-8",
     )
-    ate = estimate_ate_linear(df, "treatment", "outcome", ["w1"])
-    assert isinstance(ate, float)
+
+    cfg = load_config(eval_cfg)
+    assert cfg["task"] == "classification"
+    assert cfg["model_uri"].endswith("dummy.joblib")
+
+
+def test_data_loader_supports_random_split_only():
+    loader = DatasetLoader(random_state=7)
+    cfg = {
+        "source": {
+            "type": "csv",
+            "path": "dataset/regression/train.csv",
+            "target": "target",
+        },
+        "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
+    }
+
+    ds = loader.load(cfg)
+    assert ds.metadata["strategy"] == "random"
+    assert len(ds.X_train) > 0
+    assert ds.X_valid is not None
+    assert ds.X_test is not None

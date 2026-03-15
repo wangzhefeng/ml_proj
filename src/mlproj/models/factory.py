@@ -70,16 +70,6 @@ def create_model(
             raise ValueError(
                 f"Unknown model '{model_name}' for task '{task}'. Available: ['kmeans', 'kmeans_small']"
             )
-
-    elif task == "timeseries":
-        if model_name == "linear_regression":
-            model = LinearRegression(**params)
-        elif model_name == "random_forest":
-            model = RandomForestRegressor(random_state=42, **params)
-        else:
-            raise ValueError(
-                f"Unknown model '{model_name}' for task '{task}'. Available: ['linear_regression', 'random_forest']"
-            )
     else:
         raise ValueError(f"Unsupported task: {task}")
 

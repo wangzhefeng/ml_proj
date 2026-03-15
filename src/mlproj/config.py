@@ -33,7 +33,7 @@ class SourceConfig(BaseModel):
 class SplitConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    strategy: Literal["random", "timeseries"] = "random"
+    strategy: Literal["random"] = "random"
     valid_size: float = 0.2
     test_size: float = 0.2
 
@@ -69,7 +69,7 @@ class TuneConfig(BaseModel):
 class TrainRunConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    task: Literal["classification", "regression", "clustering", "timeseries"]
+    task: Literal["classification", "regression", "clustering"]
     artifact_root: str = "artifacts"
     source: SourceConfig
     split: SplitConfig = Field(default_factory=SplitConfig)
@@ -83,14 +83,11 @@ class TrainRunConfig(BaseModel):
             "classification": {"logistic_regression", "random_forest"},
             "regression": {"linear_regression", "random_forest"},
             "clustering": {"kmeans", "kmeans_small"},
-            "timeseries": {"linear_regression", "random_forest"},
         }
         if self.model.name not in supported[self.task]:
             raise ValueError(
                 f"model.name '{self.model.name}' is not supported for task '{self.task}'"
             )
-        if self.task == "timeseries" and self.split.strategy != "timeseries":
-            raise ValueError("timeseries task requires split.strategy=timeseries")
         return self
 
 
@@ -100,7 +97,7 @@ class EvaluateConfig(BaseModel):
     model_uri: str
     input: str
     target_col: str | None = None
-    task: Literal["classification", "regression", "timeseries", "clustering"] | None = None
+    task: Literal["classification", "regression", "clustering"] | None = None
     output_metrics: str | None = None
 
 

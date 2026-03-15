@@ -186,7 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument(
         "--task",
         required=False,
-        choices=["classification", "regression", "timeseries", "clustering"],
+        choices=["classification", "regression", "clustering"],
     )
     p_eval.add_argument("--output-metrics", required=False)
     p_eval.set_defaults(func=cmd_evaluate)
@@ -218,3 +218,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

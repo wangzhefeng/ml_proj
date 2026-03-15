@@ -7,7 +7,6 @@ from sklearn.model_selection import (
     KFold,
     RandomizedSearchCV,
     StratifiedKFold,
-    TimeSeriesSplit,
 )
 
 
@@ -69,6 +68,4 @@ class Tuner:
     def _build_cv(self, task: str, folds: int):
         if task == "classification":
             return StratifiedKFold(n_splits=folds, shuffle=True, random_state=self.random_state)
-        if task == "timeseries":
-            return TimeSeriesSplit(n_splits=folds)
         return KFold(n_splits=folds, shuffle=True, random_state=self.random_state)

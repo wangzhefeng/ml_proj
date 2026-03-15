@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 from sklearn.model_selection import train_test_split
 
 from mlproj.types import DatasetBundle
@@ -251,9 +249,6 @@ class DatasetLoader:
         valid_size = float(split_cfg.get("valid_size", 0.2))
         test_size = float(split_cfg.get("test_size", 0.2))
 
-        if strategy == "timeseries":
-            return self._time_split(X, y, valid_size=valid_size, test_size=test_size)
-
         stratify_y = None
         if y is not None and y.nunique(dropna=True) <= 30:
             stratify_y = y
@@ -287,35 +282,4 @@ class DatasetLoader:
             X_test=X_test.reset_index(drop=True),
             y_test=None if y_test is None else y_test.reset_index(drop=True),
             metadata={"strategy": strategy},
-        )
-
-    def _time_split(
-        self, X: pd.DataFrame, y: pd.Series | None, valid_size: float, test_size: float
-    ) -> DatasetBundle:
-        n = len(X)
-        test_n = int(n * test_size)
-        valid_n = int(n * valid_size)
-        train_n = n - valid_n - test_n
-        if train_n <= 0:
-            raise ValueError("Split sizes are too large for timeseries split")
-
-        X_train = X.iloc[:train_n]
-        X_valid = X.iloc[train_n : train_n + valid_n]
-        X_test = X.iloc[train_n + valid_n :]
-
-        if y is None:
-            y_train = y_valid = y_test = None
-        else:
-            y_train = y.iloc[:train_n]
-            y_valid = y.iloc[train_n : train_n + valid_n]
-            y_test = y.iloc[train_n + valid_n :]
-
-        return DatasetBundle(
-            X_train=X_train.reset_index(drop=True),
-            y_train=None if y_train is None else y_train.reset_index(drop=True),
-            X_valid=X_valid.reset_index(drop=True),
-            y_valid=None if y_valid is None else y_valid.reset_index(drop=True),
-            X_test=X_test.reset_index(drop=True),
-            y_test=None if y_test is None else y_test.reset_index(drop=True),
-            metadata={"strategy": "timeseries"},
         )

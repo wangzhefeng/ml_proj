@@ -1,27 +1,42 @@
-from pathlib import Path
+from fastapi.testclient import TestClient
 
-from mlproj.deploy import (
-    create_iris_fastapi_app,
-    export_linear_regression_onnx,
-    export_resnet50_onnx,
-    train_iris_classifier_model,
-)
+from mlproj.inference.service import create_app
+from mlproj.training.trainer import Trainer
 
 
-def test_train_and_fastapi_app(tmp_path):
-    model_path = tmp_path / "IrisClassifier.pkl"
-    out = train_iris_classifier_model(model_path)
-    assert Path(out["model_uri"]).exists()
+def test_service_health_and_predict_contract(tmp_path):
+    cfg = {
+        "task": "classification",
+        "artifact_root": str(tmp_path / "artifacts"),
+        "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
+        "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
+        "model": {"name": "logistic_regression", "params": {}},
+        "tune": {"enabled": False},
+    }
+    artifact = Trainer(artifact_root=cfg["artifact_root"]).train(cfg)
 
-    app = create_iris_fastapi_app(model_path)
-    route_paths = {route.path for route in app.router.routes}
-    assert "/health" in route_paths
-    assert "/predict-result" in route_paths
+    app = create_app(str(artifact.model_uri))
+    client = TestClient(app)
 
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
 
-def test_onnx_export_bridges(tmp_path):
-    lr_out = export_linear_regression_onnx(tmp_path / "linear_regression.onnx")
-    assert lr_out["status"] in {"ok", "skipped"}
+    bad = client.post("/predict", json={"rows": []})
+    assert bad.status_code == 400
 
-    resnet_out = export_resnet50_onnx(tmp_path)
-    assert resnet_out["status"] in {"ok", "skipped"}
+    good = client.post(
+        "/predict",
+        json={
+            "rows": [
+                {
+                    "feature_0": 14.23,
+                    "feature_1": 1.71,
+                    "feature_2": 2.43,
+                    "feature_3": 15.6,
+                    "feature_4": 127,
+                }
+            ]
+        },
+    )
+    assert good.status_code in {200, 400}

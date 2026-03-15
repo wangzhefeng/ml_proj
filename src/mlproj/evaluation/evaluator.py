@@ -182,57 +182,6 @@ def clustering_metrics(X, labels_pred, labels_true=None) -> dict[str, float]:
     return metrics
 
 
-def _timeseries_window_metrics(y_true, y_pred) -> dict[str, float]:
-    y_true_arr = np.asarray(y_true, dtype=float)
-    y_pred_arr = np.asarray(y_pred, dtype=float)
-
-    n = len(y_true_arr)
-    if n < 4:
-        return {
-            "rolling_window": float(n),
-            "rolling_rmse_mean": float(np.sqrt(mean_squared_error(y_true_arr, y_pred_arr))),
-            "rolling_rmse_std": 0.0,
-            "segment_head_rmse": float(np.sqrt(mean_squared_error(y_true_arr, y_pred_arr))),
-            "segment_mid_rmse": float(np.sqrt(mean_squared_error(y_true_arr, y_pred_arr))),
-            "segment_tail_rmse": float(np.sqrt(mean_squared_error(y_true_arr, y_pred_arr))),
-            "segment_rmse_drift": 0.0,
-        }
-
-    window = max(3, min(20, n // 5))
-    rmses: list[float] = []
-    for end in range(window, n + 1):
-        s = end - window
-        rmses.append(float(np.sqrt(mean_squared_error(y_true_arr[s:end], y_pred_arr[s:end]))))
-
-    out = {
-        "rolling_window": float(window),
-        "rolling_rmse_mean": float(np.mean(rmses)),
-        "rolling_rmse_std": float(np.std(rmses)),
-    }
-    out.update(_timeseries_segment_metrics(y_true_arr, y_pred_arr))
-    return out
-
-
-def _timeseries_segment_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
-    n = len(y_true)
-    seg = max(1, n // 3)
-
-    head_rmse = float(np.sqrt(mean_squared_error(y_true[:seg], y_pred[:seg])))
-    mid_start = seg
-    mid_end = min(n, 2 * seg)
-    mid_rmse = float(
-        np.sqrt(mean_squared_error(y_true[mid_start:mid_end], y_pred[mid_start:mid_end]))
-    )
-    tail_rmse = float(np.sqrt(mean_squared_error(y_true[-seg:], y_pred[-seg:])))
-
-    return {
-        "segment_head_rmse": head_rmse,
-        "segment_mid_rmse": mid_rmse,
-        "segment_tail_rmse": tail_rmse,
-        "segment_rmse_drift": tail_rmse - head_rmse,
-    }
-
-
 def _score_based_classification_metrics(y_true: np.ndarray, y_score: Any) -> dict[str, float]:
     score_arr = np.asarray(y_score)
     out: dict[str, float] = {}
@@ -297,10 +246,8 @@ class Evaluator:
         if task == "classification":
             return MetricReport(task=task, metrics=classification_metrics(y_true, y_pred, y_score))
 
-        if task in {"regression", "timeseries"}:
+        if task == "regression":
             metrics = regression_metrics(y_true, y_pred)
-            if task == "timeseries":
-                metrics.update(_timeseries_window_metrics(y_true, y_pred))
             return MetricReport(task=task, metrics=metrics)
 
         if task == "clustering":
