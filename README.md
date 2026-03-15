@@ -1,4 +1,4 @@
-﻿# ml-proj
+# ml-proj
 
 `ml-proj` 是一个面向工程落地的机器学习建模框架，覆盖：
 - 数据读取与切分
@@ -39,7 +39,52 @@ src/mlproj/
 uv sync --all-groups
 uv run mlproj train --config configs/classification/train.yaml
 uv run mlproj tune --config configs/classification/search.yaml
-uv run mlproj evaluate --config configs/regression/train.yaml
+uv run mlproj evaluate --model-uri artifacts/classification/logistic_regression/<run_id>/model.joblib --input dataset/classification/test.csv --target-col target --task classification
+```
+
+## evaluate 命令（P1 改造）
+
+`evaluate` 已改为基于“已训练模型”评估，不再触发重新训练：
+
+```bash
+uv run mlproj evaluate \
+  --model-uri <model.joblib> \
+  --input <csv_or_parquet> \
+  --target-col <label_column> \
+  --task classification \
+  --output-metrics outputs/eval_metrics.json
+```
+
+也支持配置文件方式（配置内需提供 `model_uri/input`）：
+
+```bash
+uv run mlproj evaluate --config configs/classification/evaluate.yaml
+```
+
+## 数据加载方式（P1 改造）
+
+1. 单文件 + 自动切分
+
+```yaml
+source:
+  type: csv
+  path: dataset/classification/train.csv
+  target: target
+split:
+  strategy: random
+  valid_size: 0.2
+  test_size: 0.2
+```
+
+2. 显式 train/valid/test（不再二次随机切分）
+
+```yaml
+source:
+  type: csv
+  train_path: dataset/classification/train.csv
+  valid_path: dataset/classification/valid.csv
+  test_path: dataset/classification/test.csv
+  target: target
 ```
 
 ## 训练产物
@@ -53,27 +98,12 @@ artifacts/{task}/{model}/{run_id}/
   summary.json
 ```
 
-## 旧脚本迁移（已完成）
-
-- `model_select/*.py` -> `mlproj.selection.search`
-- `model_fusion/*.py` -> `mlproj.fusion.ensemble` / `mlproj.legacy_models.fusion_models`
-- `model_deploy/*.py` -> `mlproj.deploy.runtime` / `mlproj.legacy_models.deploy_models`
-- `feature_engine/*.py` -> `mlproj.features.legacy_engine`
-- `data_provider/config_loader.py` -> `mlproj.data.legacy_provider`
-- `data_provider/json_loader.py` -> `mlproj.data.legacy_provider`
-- `data_provider/yaml_loader.py` -> `mlproj.data.legacy_provider`
-- `data_provider/data_loader_lgb.py` -> `mlproj.data.legacy_provider`
-- `data_provider/data_loader_xgb.py` -> `mlproj.data.legacy_provider`
-- `metrics/metric_report.py` -> `mlproj.evaluation.legacy_metric`
-- `metric/metric_report.py` -> `metrics/metric_report.py`（兼容目录）
-- `models/*.py` -> `mlproj.legacy_models.root_models`
-- `models/supervised/**/*.py` -> `mlproj.legacy_models.subdir_models`
-- `models/unsupervised/**/*.py` -> `mlproj.legacy_models.subdir_models`
+说明：`artifacts/` 与 `outputs/` 已加入 `.gitignore`，默认不再作为开发产物提交。
 
 ## 质量校验
 
 ```bash
-uv run ruff check . --exclude "*.ipynb"
-uv run black --check src tests model_select model_fusion model_deploy feature_engine data_provider metrics metric models
+uv run ruff check src tests configs main.py
+uv run black --check src tests configs main.py
 uv run pytest -q
 ```

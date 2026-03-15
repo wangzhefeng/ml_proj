@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -26,21 +27,77 @@ class DatasetLoader:
 
     def _load_csv(self, config: dict[str, Any]) -> DatasetBundle:
         source = config["source"]
-        path = source["path"]
         target_col = source.get("target")
         sep = source.get("sep", ",")
+
+        # Explicit split mode: provide train/valid/test files directly.
+        if source.get("train_path"):
+            return self._load_explicit_splits(source=source, target_col=target_col, sep=sep)
+
+        path = source["path"]
         df = pd.read_csv(path, sep=sep)
-
-        if target_col is None:
-            X = df
-            y = None
-        else:
-            if target_col not in df.columns:
-                raise ValueError(f"Target column not found: {target_col}")
-            X = df.drop(columns=[target_col])
-            y = df[target_col]
-
+        X, y = self._split_target(df, target_col)
         return self._split(X, y, config)
+
+    def _load_explicit_splits(
+        self, source: dict[str, Any], target_col: str | None, sep: str
+    ) -> DatasetBundle:
+        train_df = self._read_csv(source["train_path"], sep)
+        valid_df = self._read_csv(source["valid_path"], sep) if source.get("valid_path") else None
+        test_df = self._read_csv(source["test_path"], sep) if source.get("test_path") else None
+
+        X_train, y_train = self._split_target(train_df, target_col)
+        X_valid, y_valid = (
+            self._split_target(valid_df, target_col) if valid_df is not None else (None, None)
+        )
+        X_test, y_test = (
+            self._split_target(test_df, target_col) if test_df is not None else (None, None)
+        )
+
+        # Allow explicit-train + automatic split fallback when valid/test are omitted.
+        if X_valid is None or X_test is None:
+            split_cfg = {
+                "split": {
+                    "strategy": "random",
+                    "valid_size": 0.2,
+                    "test_size": 0.2,
+                }
+            }
+            split_cfg["split"].update(source.get("split", {}))
+            split_bundle = self._split(X_train, y_train, split_cfg)
+            X_train = split_bundle.X_train
+            y_train = split_bundle.y_train
+            X_valid = split_bundle.X_valid
+            y_valid = split_bundle.y_valid
+            X_test = split_bundle.X_test
+            y_test = split_bundle.y_test
+
+        return DatasetBundle(
+            X_train=X_train.reset_index(drop=True),
+            y_train=None if y_train is None else y_train.reset_index(drop=True),
+            X_valid=None if X_valid is None else X_valid.reset_index(drop=True),
+            y_valid=None if y_valid is None else y_valid.reset_index(drop=True),
+            X_test=None if X_test is None else X_test.reset_index(drop=True),
+            y_test=None if y_test is None else y_test.reset_index(drop=True),
+            metadata={"strategy": "explicit_files"},
+        )
+
+    def _read_csv(self, path_like: str | Path, sep: str) -> pd.DataFrame:
+        path = Path(path_like)
+        if not path.exists():
+            raise FileNotFoundError(f"CSV file not found: {path}")
+        return pd.read_csv(path, sep=sep)
+
+    def _split_target(
+        self, df: pd.DataFrame | None, target_col: str | None
+    ) -> tuple[pd.DataFrame | None, pd.Series | None]:
+        if df is None:
+            return None, None
+        if target_col is None:
+            return df, None
+        if target_col not in df.columns:
+            raise ValueError(f"Target column not found: {target_col}")
+        return df.drop(columns=[target_col]), df[target_col]
 
     def _load_sklearn(self, config: dict[str, Any]) -> DatasetBundle:
         dataset_name = config["source"].get("name", "iris")

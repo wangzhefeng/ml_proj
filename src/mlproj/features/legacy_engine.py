@@ -485,4 +485,3 @@ def simple_over_under_sample(
         x_res, y_res = sampler.fit_resample(X, y)
         return pd.DataFrame(x_res, columns=X.columns), pd.Series(y_res)
     raise ValueError("strategy must be one of {'downsample', 'smote'}")
-

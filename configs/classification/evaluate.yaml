@@ -1,0 +1,6 @@
+# 请将 model_uri 替换为实际训练产物路径
+model_uri: artifacts/classification/logistic_regression/<run_id>/model.joblib
+input: dataset/classification/test.csv
+target_col: target
+task: classification
+output_metrics: outputs/classification_evaluate_metrics.json

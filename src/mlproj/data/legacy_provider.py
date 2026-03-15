@@ -1,52 +1,6 @@
-﻿from __future__ import annotations
-
-import json
-from pathlib import Path
-from typing import Any
+from __future__ import annotations
 
 import pandas as pd
-import yaml
-
-
-def _resolve_path(config_filename: str | Path) -> Path:
-    p = Path(config_filename)
-    if p.is_absolute():
-        return p
-    return Path(__file__).resolve().parents[3] / "data_provider" / p
-
-
-def load_yaml(file_name: str | Path) -> dict[str, Any]:
-    path = _resolve_path(file_name)
-    with path.open("r", encoding="utf-8") as infile:
-        return yaml.load(infile, Loader=yaml.FullLoader)
-
-
-def get_params(yaml_path: str) -> dict[str, Any]:
-    return load_yaml(yaml_path)
-
-
-def load_yaml_config(yaml_filename: str) -> dict[str, Any]:
-    cfg_params = load_yaml(yaml_filename)
-    _ensure_model_save_dir(cfg_params)
-    return cfg_params
-
-
-def load_json_config(config_filename: str) -> dict[str, Any]:
-    path = _resolve_path(config_filename)
-    with path.open("r", encoding="utf-8") as infile:
-        cfg_params = json.load(infile)
-    _ensure_model_save_dir(cfg_params)
-    return cfg_params
-
-
-def _ensure_model_save_dir(cfg_params: dict[str, Any]) -> None:
-    try:
-        save_dir = cfg_params.get("model", {}).get("save_dir")
-        if save_dir:
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-
 
 def get_lgb_train_test_data(train_path: str, test_path: str, weight_paths: list[str] | None = None):
     df_train = pd.read_csv(train_path, header=None, sep="\t")

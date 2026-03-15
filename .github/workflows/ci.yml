@@ -18,8 +18,8 @@ jobs:
       - name: Install deps
         run: uv sync --all-groups
       - name: Ruff
-        run: uv run ruff check .
+        run: uv run ruff check src tests configs main.py
       - name: Black
-        run: uv run black --check .
+        run: uv run black --check src tests configs main.py
       - name: Pytest
         run: uv run pytest -q

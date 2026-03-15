@@ -208,3 +208,7 @@ __marimo__/
 
 # custom
 dataset/
+.uv-cache/
+
+artifacts/
+outputs/

@@ -14,7 +14,6 @@ import logging
 from logging import handlers
 from pathlib import Path
 
-
 # 项目根路径
 ROOT_PATH = Path.cwd()
 
@@ -27,7 +26,9 @@ LOG_PATH = LOG_DIR.joinpath("service")
 LOG_LEVEL = os.environ.get("SERVICE_LOG_LEVEL", "INFO")
 
 # 默认日志格式
-default_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s")
+default_formatter = logging.Formatter(
+    "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
+)
 
 # ------------------------------
 # 控制台日志处理器
@@ -42,9 +43,9 @@ stream_handler.setFormatter(default_formatter)
 # ------------------------------
 # 按天轮转的文件日志处理器
 time_rotating_file_handler = handlers.TimedRotatingFileHandler(
-    filename=LOG_PATH, 
-    when="MIDNIGHT", 
-    interval=1, 
+    filename=LOG_PATH,
+    when="MIDNIGHT",
+    interval=1,
     backupCount=10,
     encoding="utf-8",
 )
@@ -65,8 +66,6 @@ logger.setLevel(LOG_LEVEL)
 logger.propagate = False
 
 
-
-
 def main():
     """日志功能演示"""
     # 测试不同级别的日志
@@ -75,10 +74,11 @@ def main():
     logger.warning("这是一条警告信息")
     logger.error("这是一条错误信息")
     logger.critical("这是一条严重错误信息")
-    
+
     # 测试日志文件轮转
     for i in range(100):
         logger.info(f"测试日志轮转 - {i}")
+
 
 if __name__ == "__main__":
     main()

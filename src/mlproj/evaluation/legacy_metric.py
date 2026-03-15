@@ -4,7 +4,8 @@ import itertools
 from typing import Any
 
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import (
@@ -38,7 +39,7 @@ def precision_recall_curve_report(y_true, y_score):
 
 def ROC_plot(y_true, y_score):
     fpr, tpr, thresholds = roc_curve(y_true, y_score)
-    roc_auc = float(np.trapz(tpr, fpr))
+    roc_auc = float(np.trapezoid(tpr, fpr))
 
     plt.figure()
     lw = 2
@@ -108,4 +109,3 @@ def param_cvsearch_report(search_instance, n_top: int = 3) -> list[dict[str, Any
                 }
             )
     return report
-
