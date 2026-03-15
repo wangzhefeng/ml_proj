@@ -1,9 +1,0 @@
-{
-  "task": "clustering",
-  "model": "kmeans_small",
-  "run_id": "20260315_052242",
-  "metrics": {
-    "silhouette": 0.6086422984715676,
-    "davies_bouldin": 0.5480185289143866
-  }
-}
