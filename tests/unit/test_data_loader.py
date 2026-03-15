@@ -74,3 +74,36 @@ def test_loader_lgb_xgb_error_or_output(tmp_path):
         assert len(out_xgb) >= 6
     except RuntimeError:
         assert True
+
+
+def test_loader_uses_boosting_branch_for_xgb(monkeypatch):
+    loader = DatasetLoader(random_state=7)
+    X_train = pd.DataFrame(
+        {"f1": [0.1, 0.2, 0.3, 0.4, 0.45, 0.55], "f2": [1.0, 1.1, 1.2, 1.3, 1.35, 1.45]}
+    )
+    y_train = pd.Series([0, 1, 0, 1, 0, 1])
+    X_test = pd.DataFrame({"f1": [0.5, 0.6], "f2": [1.4, 1.5]})
+    y_test = pd.Series([1, 0])
+
+    def _fake_load_xgb(self, train_path, test_path, weight_paths=None):
+        assert train_path == "train.tsv"
+        assert test_path == "test.tsv"
+        return X_train, y_train, X_test, y_test, "dtrain_obj", "dtest_obj"
+
+    monkeypatch.setattr(DatasetLoader, "load_xgb_train_test_data", _fake_load_xgb)
+
+    ds = loader.load(
+        {
+            "model": {"name": "xgboost"},
+            "source": {"type": "csv", "train_path": "train.tsv", "test_path": "test.tsv"},
+            "split": {"valid_size": 0.34},
+        }
+    )
+
+    assert ds.metadata["backend"] == "xgboost"
+    assert ds.metadata["backend_train"] == "dtrain_obj"
+    assert ds.metadata["backend_test"] == "dtest_obj"
+    assert ds.metadata["strategy"] == "boosting_explicit_train_test"
+    assert ds.X_train.shape[1] == 2
+    assert ds.X_valid is not None
+    assert ds.X_test.shape == (2, 2)

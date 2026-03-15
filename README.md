@@ -107,3 +107,7 @@ uv run ruff check src tests configs main.py
 uv run black --check src tests configs main.py
 uv run pytest -q
 ```
+
+## 2026-03-15 Update
+- DatasetLoader now auto-routes to boosting loaders when `model.name` is `lightgbm/lgbm` or `xgboost/xgb` and `source` provides `train_path` + `test_path` (TSV with label in first column).
+- Backend objects (LightGBM `Dataset` / XGBoost `DMatrix`) are stored in `DatasetBundle.metadata` for downstream reuse.

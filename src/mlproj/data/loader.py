@@ -19,8 +19,16 @@ class DatasetLoader:
     def load(self, config: dict[str, Any]) -> DatasetBundle:
         source = config.get("source", {})
         source_type = source.get("type", "csv")
+        model_name = str(config.get("model", {}).get("name", "")).lower()
 
         if source_type == "csv":
+            boosting_bundle = self._maybe_load_boosting_train_test(
+                source=source,
+                model_name=model_name,
+                config=config,
+            )
+            if boosting_bundle is not None:
+                return boosting_bundle
             return self._load_csv(config)
 
         raise ValueError(
@@ -149,6 +157,77 @@ class DatasetLoader:
         X_test = df_test.drop(0, axis=1)
         return X_train, y_train, X_test, y_test
 
+    def _maybe_load_boosting_train_test(
+        self,
+        source: dict[str, Any],
+        model_name: str,
+        config: dict[str, Any],
+    ) -> DatasetBundle | None:
+        train_path = source.get("train_path")
+        test_path = source.get("test_path")
+        if not train_path or not test_path:
+            return None
+
+        weight_paths = source.get("weight_paths")
+        valid_size = float(config.get("split", {}).get("valid_size", 0.2))
+
+        backend_name = ""
+        backend_train = None
+        backend_test = None
+        backend_weights: tuple[pd.Series, pd.Series] | None = None
+
+        if model_name in {"lightgbm", "lgbm", "lgbm_classifier", "lgbm_regressor"}:
+            loaded = self.load_lgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
+            backend_name = "lightgbm"
+            if weight_paths:
+                W_train, W_test, X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = (
+                    loaded
+                )
+                backend_weights = (W_train, W_test)
+            else:
+                X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = loaded
+        elif model_name in {"xgboost", "xgb", "xgb_classifier", "xgb_regressor"}:
+            loaded = self.load_xgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
+            backend_name = "xgboost"
+            if weight_paths:
+                W_train, W_test, X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = (
+                    loaded
+                )
+                backend_weights = (W_train, W_test)
+            else:
+                X_train_raw, y_train_raw, X_test, y_test, backend_train, backend_test = loaded
+        else:
+            return None
+
+        stratify_y = y_train_raw if y_train_raw.nunique(dropna=True) <= 30 else None
+        X_train, X_valid, y_train, y_valid = train_test_split(
+            X_train_raw,
+            y_train_raw,
+            test_size=valid_size,
+            random_state=self.random_state,
+            stratify=stratify_y,
+        )
+
+        metadata: dict[str, Any] = {
+            "strategy": "boosting_explicit_train_test",
+            "backend": backend_name,
+            "backend_train": backend_train,
+            "backend_test": backend_test,
+        }
+        if backend_weights is not None:
+            metadata["weight_train"] = backend_weights[0]
+            metadata["weight_test"] = backend_weights[1]
+
+        return DatasetBundle(
+            X_train=X_train.reset_index(drop=True),
+            y_train=y_train.reset_index(drop=True),
+            X_valid=X_valid.reset_index(drop=True),
+            y_valid=y_valid.reset_index(drop=True),
+            X_test=X_test.reset_index(drop=True),
+            y_test=y_test.reset_index(drop=True),
+            metadata=metadata,
+        )
+
     def _read_csv(self, path_like: str | Path, sep: str) -> pd.DataFrame:
         path = Path(path_like)
         if not path.exists():
@@ -240,38 +319,3 @@ class DatasetLoader:
             y_test=None if y_test is None else y_test.reset_index(drop=True),
             metadata={"strategy": "timeseries"},
         )
-
-def load_yaml(path: str | Path) -> dict[str, Any]:
-    with Path(path).open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
-
-
-def get_params(path: str | Path) -> dict[str, Any]:
-    return load_yaml(path)
-
-
-def load_yaml_config(path: str | Path) -> dict[str, Any]:
-    return load_yaml(path)
-
-
-def load_json_config(path: str | Path) -> dict[str, Any]:
-    with Path(path).open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def get_lgb_train_test_data(
-    train_path: str,
-    test_path: str,
-    weight_paths: list[str] | None = None,
-):
-    loader = DatasetLoader()
-    return loader.load_lgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
-
-
-def get_xgb_train_test_data(
-    train_path: str,
-    test_path: str,
-    weight_paths: list[str] | None = None,
-):
-    loader = DatasetLoader()
-    return loader.load_xgb_train_test_data(train_path, test_path, weight_paths=weight_paths)
