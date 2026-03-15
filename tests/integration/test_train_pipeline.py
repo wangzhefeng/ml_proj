@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 
 from mlproj.training.trainer import Trainer
@@ -8,7 +8,7 @@ def test_train_classification_end_to_end(tmp_path):
     cfg = {
         "task": "classification",
         "artifact_root": str(tmp_path / "artifacts"),
-        "source": {"type": "sklearn", "name": "wine"},
+        "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
         "model": {"name": "logistic_regression", "params": {}},
         "tune": {"enabled": False},

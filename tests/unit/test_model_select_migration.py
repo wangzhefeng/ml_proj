@@ -1,5 +1,5 @@
-from scipy.stats import randint
-from sklearn import datasets, svm
+﻿from scipy.stats import randint
+from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 
 from mlproj.selection.search import (
@@ -10,7 +10,9 @@ from mlproj.selection.search import (
 
 
 def test_halving_grid_search_bridge():
-    X, y = datasets.make_classification(
+    from sklearn.datasets import make_classification
+
+    X, y = make_classification(
         n_samples=180,
         n_features=10,
         n_informative=6,
@@ -29,7 +31,9 @@ def test_halving_grid_search_bridge():
 
 
 def test_halving_random_search_bridge():
-    X, y = datasets.make_classification(
+    from sklearn.datasets import make_classification
+
+    X, y = make_classification(
         n_samples=180,
         n_features=10,
         n_informative=6,
@@ -53,11 +57,16 @@ def test_halving_random_search_bridge():
 
 
 def test_nested_cv_bridge_classification():
-    iris = datasets.load_iris()
+    import pandas as pd
+
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"])
+    y = df["target"]
+
     res = run_nested_cv(
         estimator=svm.SVC(),
-        X=iris.data,
-        y=iris.target,
+        X=X,
+        y=y,
         param_grid={"kernel": ["linear", "rbf"], "C": [0.1, 1.0]},
         inner_cv=3,
         outer_cv=4,

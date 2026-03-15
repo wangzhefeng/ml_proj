@@ -1,22 +1,26 @@
-import pytest
+﻿import pytest
 
 from mlproj.config import ConfigError, load_config
 
 
 def test_load_train_config_valid(tmp_path):
+    train_csv = tmp_path / "train.csv"
+    train_csv.write_text("f1,f2,target\n1,2,0\n3,4,1\n", encoding="utf-8")
+
     cfg = tmp_path / "train.yaml"
     cfg.write_text(
-        """task: classification
+        f"""task: classification
 source:
-  type: sklearn
-  name: wine
+  type: csv
+  path: {train_csv.as_posix()}
+  target: target
 split:
   strategy: random
   valid_size: 0.2
   test_size: 0.2
 model:
   name: logistic_regression
-  params: {}
+  params: {{}}
 tune:
   enabled: false
 """,
@@ -24,23 +28,27 @@ tune:
     )
     out = load_config(cfg)
     assert out["task"] == "classification"
-    assert out["source"]["name"] == "wine"
+    assert out["source"]["type"] == "csv"
 
 
 def test_load_config_split_invalid(tmp_path):
+    train_csv = tmp_path / "train.csv"
+    train_csv.write_text("f1,f2,target\n1,2,0\n3,4,1\n", encoding="utf-8")
+
     cfg = tmp_path / "bad_split.yaml"
     cfg.write_text(
-        """task: regression
+        f"""task: regression
 source:
-  type: sklearn
-  name: diabetes
+  type: csv
+  path: {train_csv.as_posix()}
+  target: target
 split:
   strategy: random
   valid_size: 0.7
   test_size: 0.4
 model:
   name: linear_regression
-  params: {}
+  params: {{}}
 """,
         encoding="utf-8",
     )

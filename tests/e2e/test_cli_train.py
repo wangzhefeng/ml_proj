@@ -1,4 +1,4 @@
-from mlproj.cli import main
+﻿from mlproj.cli import main
 
 
 def test_cli_train(tmp_path):
@@ -7,8 +7,9 @@ def test_cli_train(tmp_path):
         f"""task: classification
 artifact_root: {(tmp_path / 'artifacts').as_posix()}
 source:
-  type: sklearn
-  name: wine
+  type: csv
+  path: dataset/classification/train.csv
+  target: target
 split:
   strategy: random
   valid_size: 0.2

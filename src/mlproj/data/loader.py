@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from sklearn.datasets import load_diabetes, load_iris, load_wine
+import yaml
 from sklearn.model_selection import train_test_split
 
 from mlproj.types import DatasetBundle
@@ -21,16 +22,17 @@ class DatasetLoader:
 
         if source_type == "csv":
             return self._load_csv(config)
-        if source_type == "sklearn":
-            return self._load_sklearn(config)
-        raise ValueError(f"Unsupported source.type: {source_type}")
+
+        raise ValueError(
+            "Unsupported source.type: "
+            f"{source_type}. Only user-provided csv files are supported in this framework."
+        )
 
     def _load_csv(self, config: dict[str, Any]) -> DatasetBundle:
         source = config["source"]
         target_col = source.get("target")
         sep = source.get("sep", ",")
 
-        # Explicit split mode: provide train/valid/test files directly.
         if source.get("train_path"):
             return self._load_explicit_splits(source=source, target_col=target_col, sep=sep)
 
@@ -54,7 +56,6 @@ class DatasetLoader:
             self._split_target(test_df, target_col) if test_df is not None else (None, None)
         )
 
-        # Allow explicit-train + automatic split fallback when valid/test are omitted.
         if X_valid is None or X_test is None:
             split_cfg = {
                 "split": {
@@ -82,6 +83,72 @@ class DatasetLoader:
             metadata={"strategy": "explicit_files"},
         )
 
+    def load_lgb_train_test_data(
+        self,
+        train_path: str,
+        test_path: str,
+        weight_paths: list[str] | None = None,
+    ):
+        X_train, y_train, X_test, y_test = self._read_tsv_train_test(train_path, test_path)
+
+        try:
+            import lightgbm as lgb
+        except Exception as exc:
+            raise RuntimeError("lightgbm is required for load_lgb_train_test_data") from exc
+
+        weight_paths = weight_paths or []
+        if weight_paths:
+            W_train = pd.read_csv(weight_paths[0], header=None)[0]
+            W_test = pd.read_csv(weight_paths[1], header=None)[0]
+            lgb_train = lgb.Dataset(X_train, y_train, weight=W_train, free_raw_data=False)
+            lgb_eval = lgb.Dataset(
+                X_test, y_test, reference=lgb_train, weight=W_test, free_raw_data=False
+            )
+            return W_train, W_test, X_train, y_train, X_test, y_test, lgb_train, lgb_eval
+
+        lgb_train = lgb.Dataset(X_train, y_train)
+        lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)
+        return X_train, y_train, X_test, y_test, lgb_train, lgb_eval
+
+    def load_xgb_train_test_data(
+        self,
+        train_path: str,
+        test_path: str,
+        weight_paths: list[str] | None = None,
+    ):
+        X_train, y_train, X_test, y_test = self._read_tsv_train_test(train_path, test_path)
+
+        try:
+            import xgboost as xgb
+        except Exception as exc:
+            raise RuntimeError("xgboost is required for load_xgb_train_test_data") from exc
+
+        weight_paths = weight_paths or []
+        if weight_paths:
+            W_train = pd.read_csv(weight_paths[0], header=None)[0]
+            W_test = pd.read_csv(weight_paths[1], header=None)[0]
+            dtrain = xgb.DMatrix(X_train, label=y_train, weight=W_train)
+            dtest = xgb.DMatrix(X_test, label=y_test, weight=W_test)
+            return W_train, W_test, X_train, y_train, X_test, y_test, dtrain, dtest
+
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        dtest = xgb.DMatrix(X_test, label=y_test)
+        return X_train, y_train, X_test, y_test, dtrain, dtest
+
+    def _read_tsv_train_test(
+        self,
+        train_path: str,
+        test_path: str,
+    ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+        df_train = pd.read_csv(train_path, header=None, sep="\t")
+        df_test = pd.read_csv(test_path, header=None, sep="\t")
+
+        y_train = df_train[0]
+        y_test = df_test[0]
+        X_train = df_train.drop(0, axis=1)
+        X_test = df_test.drop(0, axis=1)
+        return X_train, y_train, X_test, y_test
+
     def _read_csv(self, path_like: str | Path, sep: str) -> pd.DataFrame:
         path = Path(path_like)
         if not path.exists():
@@ -98,21 +165,6 @@ class DatasetLoader:
         if target_col not in df.columns:
             raise ValueError(f"Target column not found: {target_col}")
         return df.drop(columns=[target_col]), df[target_col]
-
-    def _load_sklearn(self, config: dict[str, Any]) -> DatasetBundle:
-        dataset_name = config["source"].get("name", "iris")
-        if dataset_name == "iris":
-            raw = load_iris(as_frame=True)
-        elif dataset_name == "wine":
-            raw = load_wine(as_frame=True)
-        elif dataset_name == "diabetes":
-            raw = load_diabetes(as_frame=True)
-        else:
-            raise ValueError(f"Unsupported sklearn dataset: {dataset_name}")
-
-        X = raw.data
-        y = raw.target if hasattr(raw, "target") else None
-        return self._split(X, y, config)
 
     def _split(self, X: pd.DataFrame, y: pd.Series | None, config: dict[str, Any]) -> DatasetBundle:
         split_cfg = config.get("split", {})

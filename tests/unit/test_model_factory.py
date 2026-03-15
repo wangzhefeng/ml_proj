@@ -1,12 +1,12 @@
-from sklearn.datasets import load_iris
+﻿import pandas as pd
 
 from mlproj.models.factory import create_model
 
 
 def test_model_factory_classification_fit_predict():
-    data = load_iris(as_frame=True)
-    X = data.data
-    y = data.target
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"])
+    y = df["target"]
 
     model = create_model("classification", "logistic_regression")
     model.fit(X, y)

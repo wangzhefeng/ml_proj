@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 import pandas as pd
 
@@ -10,7 +10,7 @@ def test_cli_evaluate_with_model_uri(tmp_path):
     cfg = {
         "task": "classification",
         "artifact_root": str(tmp_path / "artifacts"),
-        "source": {"type": "sklearn", "name": "wine"},
+        "source": {"type": "csv", "path": "dataset/classification/train.csv", "target": "target"},
         "split": {"strategy": "random", "valid_size": 0.2, "test_size": 0.2},
         "model": {"name": "logistic_regression", "params": {}},
         "tune": {"enabled": False},

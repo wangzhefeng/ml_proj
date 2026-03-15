@@ -1,5 +1,5 @@
-import numpy as np
-from sklearn.datasets import load_iris
+﻿import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from mlproj.fusion import (
@@ -14,7 +14,9 @@ from mlproj.legacy_models import run_fusion_legacy_demo
 
 
 def test_fusion_builders_trainable():
-    X, y = load_iris(return_X_y=True)
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"]).values
+    y = df["target"].values
     x_train, x_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )

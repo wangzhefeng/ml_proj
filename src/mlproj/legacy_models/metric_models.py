@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from mlproj.evaluation.legacy_metric import precision_recall_curve_report
+from mlproj.evaluation.report import precision_recall_curve_report
 
 
 def run_metric_legacy_demo(script_path: str) -> dict[str, object]:

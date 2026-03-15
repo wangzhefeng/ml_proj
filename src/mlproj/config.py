@@ -14,25 +14,19 @@ class ConfigError(ValueError):
 class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    type: Literal["csv", "sklearn"] = "csv"
+    type: Literal["csv"] = "csv"
     path: str | None = None
     train_path: str | None = None
     valid_path: str | None = None
     test_path: str | None = None
     target: str | None = None
     sep: str = ","
-    name: str | None = None
     data_version: str | None = None
 
     @model_validator(mode="after")
     def validate_source(self) -> "SourceConfig":
-        if self.type == "csv":
-            if not self.path and not self.train_path:
-                raise ValueError("CSV source requires 'path' or 'train_path'")
-            return self
-
-        if self.type == "sklearn" and not self.name:
-            raise ValueError("sklearn source requires 'name'")
+        if not self.path and not self.train_path:
+            raise ValueError("CSV source requires 'path' or 'train_path'")
         return self
 
 

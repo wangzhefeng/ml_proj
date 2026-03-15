@@ -1,6 +1,6 @@
 ﻿import numpy as np
 
-from mlproj.evaluation.legacy_metric import (
+from mlproj.evaluation.report import (
     ROC_plot,
     confusion_matrix_report,
     precision_recall_curve_report,

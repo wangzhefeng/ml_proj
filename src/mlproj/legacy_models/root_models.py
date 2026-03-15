@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.datasets import load_iris, load_wine
 from sklearn.svm import SVC
 
 from mlproj.config import load_config
@@ -26,7 +26,7 @@ def run_lgb_clf_legacy_demo(
 
 
 def run_featuretools_legacy_demo() -> dict[str, int]:
-    data = load_wine(as_frame=True).data.head(30)
+    data = pd.read_csv("dataset/classification/train.csv").drop(columns=["target"]).head(30)
     pre = SklearnPreprocessor().fit(data)
     transformed = pre.transform(data)
     feats = FeaturePipeline().fit(transformed).transform(transformed)
@@ -46,15 +46,18 @@ def run_sklearn_legacy_demo(config_path: str = "configs/regression/train.yaml") 
 
 
 def run_optuna_legacy_demo() -> dict[str, object]:
-    iris = load_iris()
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"])
+    y = df["target"]
+
     distributions = {
         "kernel": ["linear", "rbf"],
         "C": np.linspace(0.5, 5.0, num=10),
     }
     result = run_random_search(
         estimator=SVC(),
-        X=iris.data,
-        y=iris.target,
+        X=X,
+        y=y,
         param_distributions=distributions,
         n_iter=5,
         cv=3,

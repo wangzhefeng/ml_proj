@@ -1,6 +1,6 @@
 import numpy as np
 
-from mlproj.analysis.metrics import classification_metrics, regression_metrics
+from mlproj.evaluation.metrics import classification_metrics, regression_metrics
 
 
 def test_classification_metrics():

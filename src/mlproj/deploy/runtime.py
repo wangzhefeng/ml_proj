@@ -1,18 +1,19 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI
-from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
 
 def train_iris_classifier_model(model_path: str | Path) -> dict[str, Any]:
-    iris = load_iris()
-    X, y = iris.data, iris.target
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"]).values
+    y = df["target"].values
 
     pipe = Pipeline([("clf", LogisticRegression(max_iter=1000, multi_class="auto"))])
     pipe.fit(X, y)
@@ -33,8 +34,8 @@ def _load_model(model_path: str | Path):
 
 def create_iris_fastapi_app(model_path: str | Path) -> FastAPI:
     app = FastAPI(
-        title="Iris Prediction Model API",
-        description="Predict iris species with trained sklearn model",
+        title="Classification Prediction Model API",
+        description="Predict class with trained sklearn model",
         version="0.1",
     )
 
@@ -48,9 +49,7 @@ def create_iris_fastapi_app(model_path: str | Path) -> FastAPI:
         values = parse_feature_request(request)
         prediction = int(model.predict([values])[0])
         prob = float(model.predict_proba([values])[0, prediction])
-
-        species = {0: "Setosa", 1: "Versicolour", 2: "Virginica"}
-        return {"prediction": species[prediction], "probability": f"{prob:.2f}"}
+        return {"prediction": str(prediction), "probability": f"{prob:.2f}"}
 
     return app
 
@@ -65,7 +64,7 @@ def create_iris_flask_app(model_path: str | Path):
 
     @app.get("/")
     def root():
-        return jsonify({"msg": "POST /predict with JSON payload: {'request': '5.1,3.5,1.4,0.2'}"})
+        return jsonify({"msg": "POST /predict with JSON payload: {'request': 'f1,f2,...'}"})
 
     @app.post("/predict")
     def predict():
@@ -78,8 +77,7 @@ def create_iris_flask_app(model_path: str | Path):
         values = parse_feature_request(req)
         prediction = int(model.predict([values])[0])
         prob = float(model.predict_proba([values])[0, prediction])
-        species = {0: "Setosa", 1: "Versicolour", 2: "Virginica"}
-        return jsonify({"prediction": species[prediction], "probability": f"{prob:.2f}"})
+        return jsonify({"prediction": str(prediction), "probability": f"{prob:.2f}"})
 
     return app
 

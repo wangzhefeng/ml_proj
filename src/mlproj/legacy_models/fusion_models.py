@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
-from sklearn.datasets import load_iris
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from mlproj.fusion import (
@@ -18,7 +18,10 @@ from mlproj.fusion import (
 
 def run_fusion_legacy_demo(script_path: str) -> dict[str, object]:
     name = Path(script_path.replace("\\", "/").lower()).name
-    X, y = load_iris(return_X_y=True)
+    df = pd.read_csv("dataset/classification/train.csv")
+    X = df.drop(columns=["target"]).values
+    y = df["target"].values
+
     x_train, x_test, y_train, y_test = train_test_split(
         X,
         y,
@@ -66,7 +69,6 @@ def run_fusion_legacy_demo(script_path: str) -> dict[str, object]:
         return {"script": script_path, "method": "sorting", "ranked": ranked}
 
     if name == "pystacknet.py":
-        # Optional dependency fallback: use sklearn stacking as runtime-compatible replacement.
         model = build_stacking_classifier()
         model.fit(x_train, y_train)
         score = float(model.score(x_test, y_test))
